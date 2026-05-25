@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Trại Chim Yến Phụng - Rainbow Budgie Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .rainbow-bg {
+      background: linear-gradient(135deg, #FFB3BA, #FFDFB3, #FFFFB3, #B3FFB3, #B3E0FF, #D4B3FF, #FFB3F0);
+      background-size: 200% 200%;
+      animation: rainbowShift 10s ease infinite;
+    }
+    @keyframes rainbowShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .card-pastel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      border-radius: 24px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    }
+    .btn-primary {
+      background-color: #f97316;
+      transition: all 0.2s;
+    }
+    .btn-primary:hover { background-color: #ea580c; transform: scale(0.98); }
+    .alert-red { border-left: 6px solid #ef4444; background: #fee2e2; }
+    .profit-green { color: #10b981; font-weight: bold; }
+    .loss-red { color: #ef4444; font-weight: bold; }
+  </style>
+</head>
+<body class="rainbow-bg min-h-screen p-4">
+
+<div id="app" class="max-w-4xl mx-auto">
+  <!-- MÀN HÌNH LOGIN -->
+  <div id="loginScreen" class="card-pastel p-6 text-center mt-20">
+    <h1 class="text-3xl font-bold text-orange-700 mb-6">🐦 Rainbow Budgie Manager</h1>
+    <div class="flex flex-col gap-4 items-center">
+      <button onclick="selectRole('manager')" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full text-lg w-64">👨‍🌾 Hiếu (Quản lý)</button>
+      <button onclick="showHenryPassword()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full text-lg w-64">👑 Henry (Admin)</button>
+    </div>
+    <div id="henryPassDiv" class="hidden mt-4">
+      <input type="password" id="henryPass" placeholder="Mật khẩu" class="border rounded-full p-2 w-64 text-center">
+      <button onclick="loginHenry()" class="bg-orange-500 text-white px-4 py-2 rounded-full mt-2">Xác nhận</button>
+    </div>
+  </div>
+
+  <!-- MAIN APP (ẩn sau login) -->
+  <div id="mainApp" class="hidden">
+    <div class="flex justify-between items-center mb-4 bg-white/70 p-3 rounded-full backdrop-blur">
+      <span id="roleBadge" class="font-bold px-3 py-1 rounded-full bg-purple-200 text-purple-800"></span>
+      <div class="flex gap-2">
+        <button onclick="manualSync()" class="bg-gray-200 p-2 rounded-full hover:bg-gray-300"><i data-lucide="refresh-cw"></i></button>
+        <button onclick="logout()" class="bg-red-200 p-2 rounded-full hover:bg-red-300"><i data-lucide="log-out"></i></button>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button onclick="showTab('breeding')" class="tab-btn bg-white/50 px-4 py-2 rounded-full">🏠 Lồng sinh sản</button>
+      <button onclick="showTab('phong')" class="tab-btn bg-white/50 px-4 py-2 rounded-full">🐣 Lồng phóng</button>
+      <button onclick="showTab('av')" class="tab-btn bg-white/50 px-4 py-2 rounded-full">🦜 Lồng AV</button>
+      <button onclick="showTab('checklist')" class="tab-btn bg-white/50 px-4 py-2 rounded-full">✅ Checklist</button>
+      <button onclick="showTab('inventory')" class="tab-btn bg-white/50 px-4 py-2 rounded-full">📦 Kho & Tài chính</button>
+      <button onclick="showTab('analytics')" class="tab-btn bg-white/50 px-4 py-2 rounded-full">📊 Thống kê</button>
+      <button id="adminConfigTab" onclick="showTab('adminConfig')" class="tab-btn bg-white/50 px-4 py-2 rounded-full hidden">⚙️ Cấu hình</button>
+    </div>
+
+    <div id="breedingTab" class="tab-content"><div id="breedingCagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div></div>
+    <div id="phongTab" class="tab-content hidden"><button onclick="addPhongCage()" class="bg-green-500 text-white px-3 py-1 rounded-full mb-2">+ Thêm lồng phóng</button><div id="phongCagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div></div>
+    <div id="avTab" class="tab-content hidden"><div id="avInfo" class="card-pastel p-4">Số lượng chim AV: <span id="avQuantity">0</span></div><button onclick="updateAvQuantity()" class="bg-blue-500 text-white px-3 py-1 rounded-full mt-2">Cập nhật số lượng</button></div>
+    <div id="checklistTab" class="tab-content hidden"><div class="flex justify-between"><h2 class="text-2xl font-bold">✅ Checklist</h2><button id="configChecklistBtn" onclick="showChecklistConfig()" class="bg-purple-500 text-white px-3 py-1 rounded-full hidden">Cấu hình checklist</button></div><div id="checklistByShift" class="mt-4"></div><div id="checklistHistory" class="mt-6"><h3 class="font-bold">Lịch sử gần đây</h3><div id="historyList"></div></div></div>
+    <div id="inventoryTab" class="tab-content hidden"><h2 class="text-2xl font-bold">📦 Quản lý kho & tài chính</h2><button id="addItemBtn" onclick="showAddInventoryItem()" class="bg-green-500 text-white px-3 py-1 rounded-full mt-2 hidden">+ Thêm vật tư</button><div id="inventoryList"></div><hr class="my-4"><h3 class="text-xl font-bold">💵 Doanh thu</h3><button onclick="showAddSale()" class="bg-blue-500 text-white px-3 py-1 rounded-full">+ Bán chim</button><div id="salesList"></div><hr class="my-4"><h3 class="text-xl font-bold">💰 Chi phí đầu tư</h3><button onclick="showAddCost()" class="bg-orange-500 text-white px-3 py-1 rounded-full">+ Thêm chi phí</button><div id="costsList"></div><hr class="my-4"><div class="card-pastel p-4"><h3 class="text-xl font-bold">📈 Lợi nhuận ròng</h3><div id="profitValue" class="text-3xl font-mono">0 VND</div><canvas id="profitChart" width="400" height="200"></canvas></div></div>
+    <div id="adminConfigTabContent" class="tab-content hidden"><h2 class="text-2xl font-bold">⚙️ Cấu hình (Henry)</h2><div class="card-pastel p-2 my-2"><label>Đổi mật khẩu Henry:</label><input type="password" id="newHenryPass" class="border rounded p-1"><button onclick="changeHenryPass()" class="bg-blue-500 text-white px-2 py-1 rounded">Đổi</button></div><div class="card-pastel p-2 my-2"><label>Cấu hình Telegram:</label><input type="text" id="botToken" placeholder="Bot Token" class="border rounded p-1 w-full"><input type="text" id="chatId" placeholder="Chat ID" class="border rounded p-1 w-full mt-1"><button onclick="saveTelegramConfig()" class="bg-green-500 text-white px-3 py-1 rounded">Lưu</button></div><div class="card-pastel p-2 my-2"><button onclick="generateReportNow()" class="bg-purple-500 text-white px-4 py-2 rounded">Gửi báo cáo tổng kết ngày</button></div></div>
+    <div id="analyticsTab" class="tab-content hidden"><canvas id="profitChartAnalytics" width="400" height="200"></canvas></div>
+  </div>
+</div>
+
+<script>
+  // ========== ĐÃ THAY URL VÀ KEY CỦA BẠN ==========
+  const SUPABASE_URL = 'https://kmcdvbyttfsygqovefol.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttY2R2Ynl0dGZzeWdxb3ZlZm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTExODMsImV4cCI6MjA5NTI4NzE4M30.wTJ-dzOd49EWDnIYcMR4XQZ3ZlaatZYwY140Vj17gCA';
+  // ============================================
+
+  const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentRole = null;
+  let telegramBotToken = '', telegramChatId = '';
+  let profitChart = null;
+  let syncInterval;
+
+  async function sendTelegram(message, photoUrl = null) {
+    if (!telegramBotToken || !telegramChatId) return;
+    let url = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+    let body = { chat_id: telegramChatId, text: message, parse_mode: 'HTML' };
+    if (photoUrl) {
+      url = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
+      body = { chat_id: telegramChatId, photo: photoUrl, caption: message };
+    }
+    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+
+  window.selectRole = (role) => {
+    if (role === 'manager') {
+      currentRole = 'manager';
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+      document.getElementById('roleBadge').innerText = '👨‍🌾 Quản lý Hiếu';
+      document.getElementById('adminConfigTab').classList.add('hidden');
+      document.getElementById('configChecklistBtn').classList.add('hidden');
+      document.getElementById('addItemBtn').classList.add('hidden');
+      loadAllData();
+      startAutoSync();
+    } else {
+      document.getElementById('henryPassDiv').classList.remove('hidden');
+    }
+  };
+  window.showHenryPassword = () => { document.getElementById('henryPassDiv').classList.remove('hidden'); };
+  window.loginHenry = async () => {
+    const pass = document.getElementById('henryPass').value;
+    const { data, error } = await supabase.from('settings').select('value').eq('key', 'henry_password').single();
+    if (data && data.value === pass) {
+      currentRole = 'admin';
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+      document.getElementById('roleBadge').innerText = '👑 Admin Henry';
+      document.getElementById('adminConfigTab').classList.remove('hidden');
+      document.getElementById('configChecklistBtn').classList.remove('hidden');
+      document.getElementById('addItemBtn').classList.remove('hidden');
+      loadAllData();
+      startAutoSync();
+    } else alert('Sai mật khẩu!');
+  };
+  window.logout = () => { location.reload(); };
+  function startAutoSync() { if(syncInterval) clearInterval(syncInterval); syncInterval = setInterval(() => loadAllData(), 5000); }
+  window.manualSync = () => { loadAllData(); alert('Đã đồng bộ'); };
+
+  async function loadAllData() {
+    await loadBreedingCages();
+    await loadPhongCages();
+    await loadAvInfo();
+    await loadChecklistItemsAndHistory();
+    await loadInventoryAndSales();
+    if(currentRole === 'admin') await loadAdminConfig();
+  }
+
+  async function loadBreedingCages() {
+    const { data } = await supabase.from('cages').select('*').eq('type', 'breeding').order('code');
+    const container = document.getElementById('breedingCagesList');
+    if(!container) return;
+    container.innerHTML = '';
+    for(let cage of data) {
+      const warnings = [];
+      if(cage.expected_hatch_date && new Date(cage.expected_hatch_date) < new Date()) warnings.push('🔴 Quá ngày nở');
+      if(cage.expected_separate_date && new Date(cage.expected_separate_date) < new Date()) warnings.push('🔴 Quá ngày tách con');
+      if(cage.expected_rebreed_date && new Date(cage.expected_rebreed_date) < new Date()) warnings.push('🔴 Quá ngày ghép lại');
+      const card = document.createElement('div');
+      card.className = 'card-pastel p-3';
+      card.innerHTML = `
+        <div class="font-bold text-lg">${cage.code} ${warnings.length ? warnings.join(', ') : '✅'}</div>
+        <div>Trống: ${cage.male_color || '?'} | Mái: ${cage.female_color || '?'}</div>
+        <div>Ghép: ${cage.pairing_date || 'chưa'} | Sức khỏe: ${cage.health_status || 'bình thường'}</div>
+        <div>Trứng: ${cage.eggs_count} | Nở: ${cage.hatched_count} | Sống: ${cage.live_chicks}</div>
+        <div>Ngày đẻ đầu: ${cage.first_egg_date || '--'} | Dự nở: ${cage.expected_hatch_date || '--'}</div>
+        <button onclick="openDailyLog('${cage.code}')" class="bg-blue-400 text-white px-2 py-1 rounded-full text-sm mt-1">📝 Nhật ký hôm nay</button>
+        <button onclick="updateBreedingCage('${cage.code}')" class="bg-green-400 text-white px-2 py-1 rounded-full text-sm">✏️ Sửa</button>
+      `;
+      container.appendChild(card);
+    }
+  }
+  window.openDailyLog = (code) => {
+    const note = prompt('Ghi chú hôm nay:');
+    if(!note) return;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      let compressed = await imageCompression(file, { maxSizeMB: 0.5 });
+      const fileName = `${code}_${new Date().toISOString().slice(0,10)}.jpg`;
+      const { data: upload, error } = await supabase.storage.from('bird_images').upload(fileName, compressed);
+      let imageUrl = '';
+      if(!error) imageUrl = supabase.storage.from('bird_images').getPublicUrl(fileName).data.publicUrl;
+      await supabase.from('daily_logs').upsert({ cage_code: code, log_date: new Date().toISOString().slice(0,10), note, image_url: imageUrl });
+      alert('Đã lưu nhật ký');
+      loadAllData();
+      sendTelegram(`📝 [NHẬT KÝ LỒNG ${code}] - ${note} - Ảnh: ${imageUrl || 'không'}`, imageUrl);
+    };
+    fileInput.click();
+  };
+  window.updateBreedingCage = async (code) => {
+    if(currentRole !== 'admin') return alert('Chỉ Henry mới sửa');
+    const male = prompt('Màu trống:');
+    const female = prompt('Màu mái:');
+    const pairDate = prompt('Ngày ghép (YYYY-MM-DD):');
+    const eggs = prompt('Tổng trứng:');
+    const hatched = prompt('Trứng nở:');
+    const live = prompt('Chim non sống:');
+    const firstEgg = prompt('Ngày đẻ trứng đầu:');
+    const expectedHatch = firstEgg ? new Date(new Date(firstEgg).getTime() + 18*86400000).toISOString().slice(0,10) : null;
+    const expectedSeparate = expectedHatch ? new Date(new Date(expectedHatch).getTime() + 30*86400000).toISOString().slice(0,10) : null;
+    const expectedRebreed = expectedSeparate ? new Date(new Date(expectedSeparate).getTime() + 7*86400000).toISOString().slice(0,10) : null;
+    await supabase.from('cages').update({
+      male_color: male, female_color: female, pairing_date: pairDate, eggs_count: eggs, hatched_count: hatched, live_chicks: live,
+      first_egg_date: firstEgg, expected_hatch_date: expectedHatch, expected_separate_date: expectedSeparate, expected_rebreed_date: expectedRebreed
+    }).eq('code', code);
+    loadAllData();
+  };
+
+  async function loadPhongCages() {
+    const { data } = await supabase.from('cages').select('*').eq('type', 'phong');
+    const container = document.getElementById('phongCagesList');
+    container.innerHTML = '';
+    for(let cage of data) {
+      const { data: birds } = await supabase.from('phong_birds').select('*').eq('cage_code', cage.code);
+      container.innerHTML += `<div class="card-pastel p-3"><b>${cage.code}</b> (${cage.current_quantity}/${cage.max_quantity})<br>Chim: ${birds?.map(b=>`${b.color} (${b.age_days} ngày)`).join(', ') || 'trống'}<br><button onclick="addBirdToPhong('${cage.code}')" class="bg-blue-300 text-sm p-1 rounded">+ Thêm chim</button> <button onclick="removeBirdFromPhong('${cage.code}')" class="bg-red-300 text-sm p-1 rounded">Bán/chuyển</button></div>`;
+    }
+  }
+  window.addPhongCage = async () => {
+    if(currentRole !== 'admin') return;
+    const newCode = prompt('Mã lồng phóng mới (VD: PHONG03):');
+    if(newCode) await supabase.from('cages').insert({ code: newCode, type: 'phong', max_quantity: 10, current_quantity: 0 });
+    loadAllData();
+  };
+  window.addBirdToPhong = async (cageCode) => {
+    const color = prompt('Màu chim:');
+    const age = prompt('Tuổi (ngày):');
+    await supabase.from('phong_birds').insert({ cage_code: cageCode, color, age_days: age });
+    await supabase.from('cages').update({ current_quantity: supabase.raw('current_quantity + 1') }).eq('code', cageCode);
+    loadAllData();
+  };
+  window.removeBirdFromPhong = async (cageCode) => {
+    const price = prompt('Giá bán (VND):');
+    const customer = prompt('Tên khách:');
+    const carrier = prompt('Nhà xe:');
+    const { data: birds } = await supabase.from('phong_birds').select('*').eq('cage_code', cageCode).limit(1);
+    if(birds.length) {
+      await supabase.from('phong_birds').delete().eq('id', birds[0].id);
+      await supabase.from('cages').update({ current_quantity: supabase.raw('current_quantity - 1') }).eq('code', cageCode);
+      await supabase.from('sales').insert({ sale_date: new Date().toISOString().slice(0,10), bird_type: 'phong', color: birds[0].color, quantity: 1, unit_price: price, total_amount: price, customer_name: customer, carrier });
+      sendTelegram(`💰 [GIAO DỊCH MỚI] - 1 chim ${birds[0].color} - Giá: ${price} VND - Khách: ${customer} - Ship: ${carrier}`);
+    }
+    loadAllData();
+  };
+
+  async function loadAvInfo() {
+    const { data } = await supabase.from('cages').select('current_quantity').eq('code', 'AV').single();
+    if(data) document.getElementById('avQuantity').innerText = data.current_quantity;
+    else await supabase.from('cages').insert({ code: 'AV', type: 'av', current_quantity: 0 });
+  }
+  window.updateAvQuantity = async () => {
+    const newQty = prompt('Số lượng chim AV hiện tại:');
+    await supabase.from('cages').update({ current_quantity: newQty }).eq('code', 'AV');
+    loadAllData();
+  };
+
+  async function loadChecklistItemsAndHistory() {
+    const { data: items } = await supabase.from('checklist_items').select('*').order('order_index');
+    const today = new Date().toISOString().slice(0,10);
+    const { data: completions } = await supabase.from('checklist_completions').select('*').eq('shift_date', today);
+    const shifts = { sang: [], chieu: [], toi: [], tuan: [], khan_cap: [] };
+    items.forEach(it => { shifts[it.shift]?.push(it); });
+    let html = '';
+    for(let [shift, list] of Object.entries(shifts)) {
+      html += `<div class="card-pastel p-3 mb-3"><h3 class="font-bold">Ca ${shift.toUpperCase()}</h3>`;
+      list.forEach(item => {
+        const done = completions.find(c => c.item_id === item.id);
+        html += `<div class="flex justify-between items-center border-b py-1"><span>${item.title} ${item.is_urgent ? '🚨' : ''}</span>`;
+        if(currentRole === 'manager') {
+          if(!done) html += `<button onclick="completeChecklistItem(${item.id}, '${shift}')" class="bg-green-400 px-2 py-0.5 rounded">✅ Hoàn thành</button>`;
+          else html += `<span class="text-green-600">✓ Hoàn thành lúc ${new Date(done.completed_at).toLocaleTimeString()}</span>`;
+        } else html += `<span>${done ? 'Đã làm' : 'Chưa'}</span>`;
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+    document.getElementById('checklistByShift').innerHTML = html;
+    const { data: history } = await supabase.from('checklist_completions').select('*, checklist_items(title)').order('completed_at', { ascending: false }).limit(10);
+    document.getElementById('historyList').innerHTML = history.map(h => `<div>${h.completed_at.slice(0,16)} - ${h.checklist_items.title} (${h.notes || ''})</div>`).join('');
+  }
+  window.completeChecklistItem = async (itemId, shift) => {
+    const note = prompt('Ghi chú (nếu có):');
+    await supabase.from('checklist_completions').insert({ item_id: itemId, completed_by: 'Hiếu', shift_date: new Date().toISOString().slice(0,10), notes: note, completed_at: new Date() });
+    sendTelegram(`✅ [BÁO CÁO CA ${shift.toUpperCase()}] - Hiếu - Xong lúc ${new Date().toLocaleTimeString()} - Ghi chú: ${note || 'không'}`);
+    loadAllData();
+  };
+  window.showChecklistConfig = () => {
+    if(currentRole !== 'admin') return;
+    const action = prompt('Thêm (add) hay xóa (del) item?');
+    if(action === 'add') {
+      const title = prompt('Tên công việc:');
+      const shift = prompt('Ca (sang/chieu/toi/tuan/khan_cap):');
+      supabase.from('checklist_items').insert({ title, shift });
+    } else if(action === 'del') {
+      const id = prompt('ID công việc:');
+      supabase.from('checklist_items').delete().eq('id', id);
+    }
+    loadAllData();
+  };
+
+  async function loadInventoryAndSales() {
+    const { data: items } = await supabase.from('inventory_items').select('*');
+    let invHtml = '<div class="grid gap-2">';
+    for(let it of items) {
+      invHtml += `<div class="card-pastel p-2"><b>${it.name}</b> - Tồn: ${it.current_stock} - Đơn giá: ${it.unit_price} VND<br>`;
+      if(currentRole === 'manager') invHtml += `<button onclick="reportStock(${it.id})" class="bg-yellow-400 text-sm px-2 rounded">📦 Báo tồn mới</button>`;
+      invHtml += `</div>`;
+    }
+    invHtml += '</div>';
+    document.getElementById('inventoryList').innerHTML = invHtml;
+
+    const { data: sales } = await supabase.from('sales').select('*').order('sale_date', { ascending: false }).limit(5);
+    document.getElementById('salesList').innerHTML = sales.map(s => `<div>${s.sale_date} - ${s.quantity} chim ${s.color} - ${s.total_amount} VND - Khách: ${s.customer_name}</div>`).join('');
+
+    const { data: costs } = await supabase.from('investment_costs').select('*').order('cost_date', { ascending: false }).limit(5);
+    document.getElementById('costsList').innerHTML = costs.map(c => `<div>${c.cost_date} - ${c.category}: ${c.amount} VND (${c.description})</div>`).join('');
+
+    const totalRevenue = sales.reduce((a,b)=>a+b.total_amount,0);
+    const totalCost = costs.reduce((a,b)=>a+b.amount,0);
+    const profit = totalRevenue - totalCost;
+    const profitElem = document.getElementById('profitValue');
+    profitElem.innerText = profit.toLocaleString() + ' VND';
+    profitElem.className = `text-3xl font-mono ${profit>=0 ? 'profit-green' : 'loss-red'}`;
+    if(profitChart) profitChart.destroy();
+    profitChart = new Chart(document.getElementById('profitChart'), { type: 'line', data: { labels: ['Hôm nay'], datasets: [{ label: 'Lợi nhuận', data: [profit] }] } });
+  }
+  window.reportStock = async (itemId) => {
+    const newStock = parseFloat(prompt('Số lượng tồn mới:'));
+    const { data: item } = await supabase.from('inventory_items').select('current_stock, unit_price').eq('id', itemId).single();
+    const consumption = item.current_stock - newStock;
+    const cost = consumption * item.unit_price;
+    await supabase.from('inventory_reports').insert({ item_id: itemId, reported_date: new Date().toISOString().slice(0,10), old_stock: item.current_stock, new_stock: newStock, consumption, cost });
+    await supabase.from('inventory_items').update({ current_stock: newStock }).eq('id', itemId);
+    loadAllData();
+  };
+  window.showAddSale = async () => {
+    const qty = prompt('Số lượng:');
+    const color = prompt('Màu:');
+    const price = prompt('Đơn giá:');
+    const customer = prompt('Tên khách:');
+    const carrier = prompt('Nhà xe:');
+    await supabase.from('sales').insert({ sale_date: new Date().toISOString().slice(0,10), bird_type: 'av', color, quantity: qty, unit_price: price, total_amount: qty*price, customer_name: customer, carrier });
+    sendTelegram(`💰 [ĐƠN HÀNG MỚI] - ${qty} chim ${color} - Giá: ${qty*price} VND - Khách: ${customer} - Ship: ${carrier}`);
+    loadAllData();
+  };
+  window.showAddCost = async () => {
+    const amount = prompt('Số tiền:');
+    const desc = prompt('Mô tả (giống/lồng/thuốc):');
+    await supabase.from('investment_costs').insert({ cost_date: new Date().toISOString().slice(0,10), category: 'khác', description: desc, amount });
+    loadAllData();
+  };
+  async function loadAdminConfig() {
+    const { data: tokenData } = await supabase.from('settings').select('value').eq('key', 'telegram_token').single();
+    const { data: chatData } = await supabase.from('settings').select('value').eq('key', 'telegram_chatid').single();
+    if(tokenData) telegramBotToken = tokenData.value;
+    if(chatData) telegramChatId = chatData.value;
+    document.getElementById('botToken').value = telegramBotToken;
+    document.getElementById('chatId').value = telegramChatId;
+  }
+  window.saveTelegramConfig = async () => {
+    const token = document.getElementById('botToken').value;
+    const chatid = document.getElementById('chatId').value;
+    await supabase.from('settings').upsert({ key: 'telegram_token', value: token });
+    await supabase.from('settings').upsert({ key: 'telegram_chatid', value: chatid });
+    telegramBotToken = token; telegramChatId = chatid;
+    alert('Đã lưu cấu hình Telegram');
+  };
+  window.changeHenryPass = async () => {
+    const newPass = document.getElementById('newHenryPass').value;
+    await supabase.from('settings').update({ value: newPass }).eq('key', 'henry_password');
+    alert('Đã đổi mật khẩu');
+  };
+  window.generateReportNow = async () => {
+    const today = new Date().toISOString().slice(0,10);
+    const { data: sales } = await supabase.from('sales').select('total_amount').eq('sale_date', today);
+    const revenue = sales.reduce((a,b)=>a+b.total_amount,0);
+    await sendTelegram(`📊 [TỔNG KẾT ${today}] - Doanh thu: ${revenue} VND - Lợi nhuận tạm tính: ${revenue} VND`);
+    alert('Đã gửi báo cáo');
+  };
+  function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById(`${tabName}Tab`).classList.remove('hidden');
+    lucide.createIcons();
+  }
+  window.showTab = showTab;
+  setTimeout(() => lucide.createIcons(), 100);
+</script>
+</body>
+</html>
