@@ -266,6 +266,7 @@
   <div class="sync-bar">
     <div class="sync-dot" id="sync-dot"></div>
     <span id="sync-label" style="color:var(--text3)">Đang kết nối...</span>
+    <button onclick="manualSync()" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--accent);font-size:11px;font-family:inherit;padding:3px 10px;border-radius:20px;cursor:pointer" id="sync-btn">↻ Đồng bộ</button>
   </div>
 
   <!-- HOME -->
@@ -697,6 +698,14 @@ async function deleteTask(){
 }
 
 // ===== SYNC STATUS =====
+async function manualSync(){
+  const btn = document.getElementById('sync-btn');
+  if(btn){ btn.textContent='↻ Đang...'; btn.disabled=true; }
+  await loadAll();
+  if(btn){ btn.textContent='↻ Đồng bộ'; btn.disabled=false; }
+  showToast('Đã đồng bộ xong','success');
+}
+
 function setSyncStatus(status, msg) {
   const dot = document.getElementById('sync-dot');
   const lbl = document.getElementById('sync-label');
@@ -719,7 +728,7 @@ async function loadAll() {
       sb.from('deleted_tasks').select('*'),
       sb.from('edited_tasks').select('*'),
     ]);
-    if (p.error||t.error||i.error||e.error||c.error) throw new Error('Load error');
+    if (p.error||t.error||i.error||e.error||c.error||ct.error||dt.error||et.error) throw new Error('Load error');
 
     CACHE.pairs = p.data || [];
     CACHE.transactions = t.data || [];
