@@ -628,17 +628,23 @@ let TASKS = getAllTasks();
 async function saveTaskConfig(){
   const val = JSON.stringify(CACHE.taskConfig);
   try {
-    // Delete trước rồi insert để đảm bảo realtime trigger trên cả 2 thiết bị
-    await sb.from('checklist').delete().eq('id','__task_config__');
-    await sb.from('checklist').insert({
+    // Xoá row cũ trước
+    const {error: delErr} = await sb.from('checklist').delete().eq('id','__task_config__');
+    if(delErr) console.error('Delete taskConfig error:', delErr);
+    // Insert mới để trigger realtime trên thiết bị khác
+    const {error: insErr} = await sb.from('checklist').insert({
       id: '__task_config__',
       date: '__task_config__',
       task_id: '__config__',
       done: false,
       note: val
     });
+    if(insErr) {
+      console.error('Insert taskConfig error:', insErr);
+      localStorage.setItem('task_config', val);
+    }
   } catch(e) {
-    // fallback localStorage
+    console.error('saveTaskConfig exception:', e);
     localStorage.setItem('task_config', val);
   }
   TASKS = getAllTasks();
@@ -753,7 +759,17 @@ async function loadAll() {
     CACHE.checklist = {};
     (c.data||[]).forEach(r => {
       if(r.date === '__task_config__') {
-        try { CACHE.taskConfig = JSON.parse(r.note||'{}'); } catch{}
+        try {
+          const parsed = JSON.parse(r.note||'{}');
+          // Merge an toàn, không ghi đè nếu parse ra thiếu key
+          CACHE.taskConfig = {
+            custom: parsed.custom || [],
+            deleted: parsed.deleted || [],
+            edited: parsed.edited || {}
+          };
+        } catch(e) {
+          // Giữ nguyên CACHE.taskConfig hiện tại nếu parse fail
+        }
         return;
       }
       if (!CACHE.checklist[r.date]) CACHE.checklist[r.date] = {};
