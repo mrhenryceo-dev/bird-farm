@@ -576,8 +576,15 @@
 <script>
 // ===== SUPABASE CONFIG =====
 const SB_URL = 'https://bnumqtjzbyrtavsdlleq.supabase.co';
-const SB_KEY = 'sb_publishable_bDWTP0VBNInT_GWgoIdDUQ_pfTIK_Buq';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJudW1xdGp6YnlydGF2c2RsbGVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTk1NjMsImV4cCI6MjA5NTg3NTU2M30.-Hhyqfe366_Xn8ECav4pg8MWWHJn_o_wsuh-OfI7HHo';
+const sb = supabase.createClient(SB_URL, SB_KEY, {
+  global: {
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY
+    }
+  }
+});
 
 // ===== STATE =====
 let currentRole = null, selectedRole = 'staff', pinInput = '';
