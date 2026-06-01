@@ -475,7 +475,19 @@
       <button class="btn btn-primary" onclick="editPair()">Chỉnh sửa</button>
     </div>
     <div style="margin-top:10px"><button class="btn btn-green" onclick="openEventLog()">+ Ghi sự kiện</button></div>
-    <div style="margin-top:10px"><button class="btn btn-danger" onclick="deletePair()">Xoá cặp này</button></div>
+    <!-- NHẬT KÝ THEO THÁNG -->
+    <div style="margin-top:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">Nhật ký sự kiện</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="changeEvtMonth(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">‹</button>
+          <span id="evt-month-label" style="font-size:12px;font-weight:600;color:var(--text);min-width:72px;text-align:center"></span>
+          <button onclick="changeEvtMonth(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">›</button>
+        </div>
+      </div>
+      <div id="evt-log-list"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn btn-danger" onclick="deletePair()">Xoá cặp này</button></div>
   </div>
 </div>
 
@@ -490,7 +502,16 @@
         <option>Xuất bán</option><option>Bệnh / điều trị</option><option>Thay cặp</option><option>Khác</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label">Ngày</label><input class="form-input" id="evt-date" type="date"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Ngày</label><input class="form-input" id="evt-date" type="date"></div>
+      <div class="form-group"><label class="form-label">Giờ : Phút</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select class="form-select" id="evt-hour" style="flex:1;padding:12px 8px;text-align:center"></select>
+          <span style="color:var(--text2);font-weight:700;font-size:16px">:</span>
+          <select class="form-select" id="evt-minute" style="flex:1;padding:12px 8px;text-align:center"></select>
+        </div>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">Chi tiết</label><textarea class="form-textarea" id="evt-note" placeholder="Mô tả chi tiết..."></textarea></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <button class="btn btn-secondary" onclick="closeModal('modal-event')">Huỷ</button>
@@ -910,9 +931,11 @@ async function savePair(){
 function openPairDetail(id){
   const p=CACHE.pairs.find(x=>x.id===id); if(!p) return;
   currentPairId=id;
+  // Reset tháng nhật ký về tháng hiện tại
+  evtViewMonth=new Date().getMonth();
+  evtViewYear=new Date().getFullYear();
   document.getElementById('pd-title').textContent='Cặp '+p.code;
   document.getElementById('pd-sub').textContent=SL[p.status];
-  const evts=CACHE.events.filter(e=>e.pair_id===id).slice(0,6);
   document.getElementById('pd-body').innerHTML=`
     <div class="report-row"><span class="lbl">Con trống</span><span class="val">${p.male||'Chưa ghi'}</span></div>
     <div class="report-row"><span class="lbl">Con mái</span><span class="val">${p.female||'Chưa ghi'}</span></div>
@@ -921,11 +944,10 @@ function openPairDetail(id){
     <div class="report-row"><span class="lbl">Đẻ gần nhất</span><span class="val">${p.lastlay||'—'}</span></div>
     <div class="report-row"><span class="lbl">Trứng</span><span class="val">${p.eggs||0} quả</span></div>
     <div class="report-row"><span class="lbl">Chim non</span><span class="val">${p.chicks||0} con</span></div>
-    ${p.note?`<div class="report-row"><span class="lbl">Ghi chú</span><span class="val">${p.note}</span></div>`:''}
-    <div style="margin-top:14px;font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Lịch sử</div>
-    ${evts.length===0?'<div style="font-size:13px;color:var(--text3);padding:8px 0">Chưa có sự kiện</div>':
-      evts.map(e=>`<div class="report-row"><span class="lbl">${e.event_date}</span><span class="val" style="font-weight:500">${e.type}${e.note?' — '+e.note:''}</span></div>`).join('')}`;
+    ${p.note?`<div class="report-row"><span class="lbl">Ghi chú</span><span class="val">${p.note}</span></div>`:''}`;
   openModal('modal-pair-detail');
+  // Render nhật ký sau khi modal mở
+  setTimeout(renderEvtLog, 50);
 }
 
 function editPair(){
@@ -956,21 +978,102 @@ async function deletePair(){
 }
 
 // ===== EVENTS =====
+let evtViewMonth = new Date().getMonth();
+let evtViewYear  = new Date().getFullYear();
+
+function populateTimeSelects(){
+  const hSel=document.getElementById('evt-hour');
+  const mSel=document.getElementById('evt-minute');
+  if(!hSel||!mSel) return;
+  if(hSel.options.length===0){
+    for(let h=0;h<24;h++) hSel.add(new Option(String(h).padStart(2,'0'),String(h).padStart(2,'0')));
+  }
+  if(mSel.options.length===0){
+    for(let m=0;m<60;m++) mSel.add(new Option(String(m).padStart(2,'0'),String(m).padStart(2,'0')));
+  }
+  const now=new Date();
+  hSel.value=String(now.getHours()).padStart(2,'0');
+  mSel.value=String(now.getMinutes()).padStart(2,'0');
+}
+
 function openEventLog(){
   const p=CACHE.pairs.find(x=>x.id===currentPairId);
   document.getElementById('evt-sub').textContent='Cặp '+(p?.code||'');
   document.getElementById('evt-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('evt-note').value='';
+  populateTimeSelects();
   closeModal('modal-pair-detail'); openModal('modal-event');
 }
 
 async function saveEvent(){
-  const data={id:'e'+Date.now(), pair_id:currentPairId, type:document.getElementById('evt-type').value, event_date:document.getElementById('evt-date').value, note:document.getElementById('evt-note').value.trim()};
+  const date=document.getElementById('evt-date').value;
+  const hour=document.getElementById('evt-hour')?.value||'00';
+  const minute=document.getElementById('evt-minute')?.value||'00';
+  const timeStr=hour+':'+minute;
+  const noteRaw=document.getElementById('evt-note').value.trim();
+  // Lưu giờ phút vào note dạng "[HH:MM] nội dung" để không đụng schema
+  const noteWithTime='['+timeStr+']'+(noteRaw?' '+noteRaw:'');
+  const data={id:'e'+Date.now(), pair_id:currentPairId, type:document.getElementById('evt-type').value, event_date:date, note:noteWithTime};
   try {
     await sb.from('events').insert(data);
-    closeModal('modal-event'); showToast('Đã ghi sự kiện','success');
+    closeModal('modal-event');
+    showToast('Đã ghi sự kiện','success');
     await loadAll();
+    // Quay lại detail và render nhật ký
+    openPairDetail(currentPairId);
   } catch { showToast('Lỗi lưu','error'); }
+}
+
+async function deleteEvent(evtId, e){
+  e.stopPropagation();
+  if(!confirm('Xoá sự kiện này?')) return;
+  try {
+    await sb.from('events').delete().eq('id',evtId);
+    showToast('Đã xoá','success');
+    await loadAll();
+    renderEvtLog();
+  } catch { showToast('Lỗi xoá','error'); }
+}
+
+function changeEvtMonth(d){
+  evtViewMonth+=d;
+  if(evtViewMonth>11){evtViewMonth=0;evtViewYear++;}
+  if(evtViewMonth<0){evtViewMonth=11;evtViewYear--;}
+  renderEvtLog();
+}
+
+function renderEvtLog(){
+  const lblEl=document.getElementById('evt-month-label');
+  if(!lblEl) return;
+  lblEl.textContent=MN[evtViewMonth]+' '+evtViewYear;
+  const evts=CACHE.events.filter(e=>{
+    if(e.pair_id!==currentPairId) return false;
+    const d=new Date(e.event_date);
+    return d.getMonth()===evtViewMonth && d.getFullYear()===evtViewYear;
+  }).sort((a,b)=>b.event_date.localeCompare(a.event_date));
+  const container=document.getElementById('evt-log-list');
+  if(!container) return;
+  if(evts.length===0){
+    container.innerHTML='<div style="font-size:13px;color:var(--text3);padding:12px 0;text-align:center">Chưa có sự kiện trong tháng này</div>';
+    return;
+  }
+  container.innerHTML=evts.map(ev=>{
+    // Tách giờ phút ra khỏi note nếu có dạng [HH:MM]
+    const timeMatch=ev.note&&ev.note.match(/^\[(\d{2}:\d{2})\]\s*(.*)/s);
+    const timeLabel=timeMatch?timeMatch[1]:'';
+    const noteClean=timeMatch?timeMatch[2]:ev.note||'';
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex-shrink:0;text-align:right;min-width:56px">
+        <div style="font-size:12px;font-weight:600;color:var(--text)">${ev.event_date.slice(5).replace('-','/')}</div>
+        ${timeLabel?`<div style="font-size:11px;color:var(--accent);margin-top:1px">${timeLabel}</div>`:''}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${ev.type}</div>
+        ${noteClean?`<div style="font-size:12px;color:var(--text2);margin-top:2px;word-break:break-word">${noteClean}</div>`:''}
+      </div>
+      <button onclick="deleteEvent('${ev.id}',event)" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" title="Xoá">×</button>
+    </div>`;
+  }).join('');
 }
 
 // ===== FINANCE =====
