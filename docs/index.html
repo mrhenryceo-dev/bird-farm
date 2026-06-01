@@ -585,7 +585,7 @@ let txType = 'income', txFilter = 'all', birdFilter = 'all';
 let finViewMonth = new Date().getMonth(), finViewYear = new Date().getFullYear();
 
 // Local cache
-let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{} };
+let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{}, customTasks:[], deletedTasks:[], editedTasks:[] };
 
 // ===== CHECKLIST TASKS =====
 const DEFAULT_TASKS = [
@@ -605,18 +605,14 @@ const DEFAULT_TASKS = [
   {id:'t14',time:'18:45',label:'Tối',     title:'Kiểm tra chim non lần cuối',desc:'Đảm bảo đủ ấm, được mớm mồi'},
 ];
 
-function getCustomTasks(){ try{ return JSON.parse(localStorage.getItem('custom_tasks')||'[]'); }catch{ return []; } }
-function getDeletedDefaultIds(){ try{ return JSON.parse(localStorage.getItem('deleted_default_tasks')||'[]'); }catch{ return []; } }
-function getEditedDefaults(){ try{ return JSON.parse(localStorage.getItem('edited_default_tasks')||'{}'); }catch{ return {}; } }
-function saveCustomTasks(arr){ localStorage.setItem('custom_tasks', JSON.stringify(arr)); }
-
 function getAllTasks(){
-  const deleted = getDeletedDefaultIds();
-  const edited = getEditedDefaults();
-  const customs = getCustomTasks();
+  const deletedIds = CACHE.deletedTasks.map(d=>d.task_id);
+  const editedMap = {};
+  CACHE.editedTasks.forEach(e=>{ editedMap[e.task_id]=e; });
   const defaults = DEFAULT_TASKS
-    .filter(t => !deleted.includes(t.id))
-    .map(t => edited[t.id] ? {...t, ...edited[t.id]} : t);
+    .filter(t => !deletedIds.includes(t.id))
+    .map(t => editedMap[t.id] ? {...t, title:editedMap[t.id].title||t.title, desc:editedMap[t.id].description||t.desc, time:editedMap[t.id].time||t.time, label:editedMap[t.id].label||t.label} : t);
+  const customs = CACHE.customTasks.map(t=>({...t, desc:t.description||'', custom:true}));
   return [...defaults, ...customs];
 }
 let TASKS = getAllTasks();
@@ -642,60 +638,62 @@ function openEditTask(taskId, e){
   editingTaskId = taskId;
   document.getElementById('task-modal-title').textContent = 'Sửa công việc';
   document.getElementById('task-title').value = t.title;
-  document.getElementById('task-desc').value = t.desc;
-  document.getElementById('task-time').value = t.time;
-  document.getElementById('task-label').value = t.label;
+  document.getElementById('task-desc').value = t.desc||'';
+  document.getElementById('task-time').value = t.time||'';
+  document.getElementById('task-label').value = t.label||'Sáng sớm';
   document.getElementById('task-delete-btn-wrap').classList.remove('hidden');
   openModal('modal-task');
 }
 
-function saveTask(){
+async function saveTask(){
   const title = document.getElementById('task-title').value.trim();
   if(!title){ showToast('Nhập tên công việc!','error'); return; }
   const updated = {
     time: document.getElementById('task-time').value.trim() || '—',
     label: document.getElementById('task-label').value,
     title,
-    desc: document.getElementById('task-desc').value.trim(),
+    description: document.getElementById('task-desc').value.trim(),
   };
   const isDefault = DEFAULT_TASKS.some(t=>t.id===editingTaskId);
-  if(editingTaskId && isDefault){
-    // Lưu override cho task mặc định
-    const edited = getEditedDefaults();
-    edited[editingTaskId] = updated;
-    localStorage.setItem('edited_default_tasks', JSON.stringify(edited));
-    showToast('Đã cập nhật công việc','success');
-  } else if(editingTaskId){
-    // Sửa task custom
-    let customs = getCustomTasks().map(t => t.id===editingTaskId ? {...t,...updated} : t);
-    saveCustomTasks(customs);
-    showToast('Đã cập nhật công việc','success');
-  } else {
-    // Thêm mới
-    const newTask = { id:'tc'+Date.now(), ...updated, custom:true };
-    saveCustomTasks([...getCustomTasks(), newTask]);
-    showToast('Đã thêm công việc','success');
-  }
-  TASKS = getAllTasks();
-  closeModal('modal-task');
-  renderChecklist();
+  try {
+    if(editingTaskId && isDefault){
+      // Upsert vào edited_tasks
+      const existing = CACHE.editedTasks.find(e=>e.task_id===editingTaskId);
+      if(existing){
+        await sb.from('edited_tasks').update({...updated, updated_at:new Date().toISOString()}).eq('task_id',editingTaskId);
+      } else {
+        await sb.from('edited_tasks').insert({id:'ed'+Date.now(), task_id:editingTaskId, ...updated});
+      }
+      showToast('Đã cập nhật công việc','success');
+    } else if(editingTaskId){
+      // Sửa custom task
+      await sb.from('custom_tasks').update({...updated}).eq('id',editingTaskId);
+      showToast('Đã cập nhật công việc','success');
+    } else {
+      // Thêm mới
+      await sb.from('custom_tasks').insert({id:'tc'+Date.now(), ...updated, sort_order:CACHE.customTasks.length});
+      showToast('Đã thêm công việc','success');
+    }
+    closeModal('modal-task');
+    await loadAll();
+  } catch { showToast('Lỗi lưu','error'); }
 }
 
-function deleteTask(){
+async function deleteTask(){
   if(!editingTaskId) return;
   if(!confirm('Xoá công việc này?')) return;
   const isDefault = DEFAULT_TASKS.some(t=>t.id===editingTaskId);
-  if(isDefault){
-    const deleted = getDeletedDefaultIds();
-    if(!deleted.includes(editingTaskId)) deleted.push(editingTaskId);
-    localStorage.setItem('deleted_default_tasks', JSON.stringify(deleted));
-  } else {
-    saveCustomTasks(getCustomTasks().filter(t=>t.id!==editingTaskId));
-  }
-  TASKS = getAllTasks();
-  closeModal('modal-task');
-  showToast('Đã xoá','success');
-  renderChecklist();
+  try {
+    if(isDefault){
+      const existing = CACHE.deletedTasks.find(d=>d.task_id===editingTaskId);
+      if(!existing) await sb.from('deleted_tasks').insert({id:'del'+Date.now(), task_id:editingTaskId});
+    } else {
+      await sb.from('custom_tasks').delete().eq('id',editingTaskId);
+    }
+    closeModal('modal-task');
+    showToast('Đã xoá','success');
+    await loadAll();
+  } catch { showToast('Lỗi xoá','error'); }
 }
 
 // ===== SYNC STATUS =====
@@ -711,12 +709,15 @@ function setSyncStatus(status, msg) {
 async function loadAll() {
   setSyncStatus('syncing','Đang tải dữ liệu...');
   try {
-    const [p,t,i,e,c] = await Promise.all([
+    const [p,t,i,e,c,ct,dt,et] = await Promise.all([
       sb.from('pairs').select('*').order('code'),
       sb.from('transactions').select('*').order('tx_date',{ascending:false}),
       sb.from('inventory').select('*').order('name'),
       sb.from('events').select('*').order('event_date',{ascending:false}),
       sb.from('checklist').select('*'),
+      sb.from('custom_tasks').select('*').order('sort_order'),
+      sb.from('deleted_tasks').select('*'),
+      sb.from('edited_tasks').select('*'),
     ]);
     if (p.error||t.error||i.error||e.error||c.error) throw new Error('Load error');
 
@@ -724,6 +725,9 @@ async function loadAll() {
     CACHE.transactions = t.data || [];
     CACHE.inventory = i.data || [];
     CACHE.events = e.data || [];
+    CACHE.customTasks = ct.data || [];
+    CACHE.deletedTasks = dt.data || [];
+    CACHE.editedTasks = et.data || [];
 
     // Build checklist map: { date: { task_id: done } }
     CACHE.checklist = {};
@@ -731,6 +735,9 @@ async function loadAll() {
       if (!CACHE.checklist[r.date]) CACHE.checklist[r.date] = {};
       CACHE.checklist[r.date][r.task_id] = r.done;
     });
+
+    // Rebuild TASKS sau mỗi lần load
+    TASKS = getAllTasks();
 
     // Seed default inventory if empty
     if (CACHE.inventory.length === 0) await seedInventory();
@@ -799,6 +806,9 @@ function setupRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'inventory'}, () => loadAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'events'}, () => loadAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'checklist'}, () => loadAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'custom_tasks'}, () => loadAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'deleted_tasks'}, () => loadAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'edited_tasks'}, () => loadAll())
     .subscribe(status => {
       if (status==='SUBSCRIBED') setSyncStatus('ok','Realtime bật');
       if (status==='CLOSED'||status==='CHANNEL_ERROR') setSyncStatus('err','Mất kết nối realtime');
