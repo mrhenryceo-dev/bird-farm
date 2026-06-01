@@ -593,7 +593,7 @@ let txType = 'income', txFilter = 'all', birdFilter = 'all';
 let finViewMonth = new Date().getMonth(), finViewYear = new Date().getFullYear();
 
 // Local cache
-let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{}, customTasks:[], deletedTasks:[], editedTasks:[] };
+let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{}, taskConfig:{custom:[], deleted:[], edited:{}} };
 
 // ===== CHECKLIST TASKS =====
 const DEFAULT_TASKS = [
@@ -614,16 +614,34 @@ const DEFAULT_TASKS = [
 ];
 
 function getAllTasks(){
-  const deletedIds = CACHE.deletedTasks.map(d=>d.task_id);
-  const editedMap = {};
-  CACHE.editedTasks.forEach(e=>{ editedMap[e.task_id]=e; });
+  const cfg = CACHE.taskConfig;
+  const deleted = cfg.deleted || [];
+  const edited = cfg.edited || {};
+  const customs = cfg.custom || [];
   const defaults = DEFAULT_TASKS
-    .filter(t => !deletedIds.includes(t.id))
-    .map(t => editedMap[t.id] ? {...t, title:editedMap[t.id].title||t.title, desc:editedMap[t.id].description||t.desc, time:editedMap[t.id].time||t.time, label:editedMap[t.id].label||t.label} : t);
-  const customs = CACHE.customTasks.map(t=>({...t, desc:t.description||'', custom:true}));
-  return [...defaults, ...customs];
+    .filter(t => !deleted.includes(t.id))
+    .map(t => edited[t.id] ? {...t, ...edited[t.id]} : t);
+  return [...defaults, ...customs.map(t=>({...t,custom:true}))];
 }
 let TASKS = getAllTasks();
+
+async function saveTaskConfig(){
+  const val = JSON.stringify(CACHE.taskConfig);
+  try {
+    await sb.from('checklist').upsert({
+      id: '__task_config__',
+      date: '__task_config__',
+      task_id: '__config__',
+      done: false,
+      note: val
+    }, {onConflict:'id'});
+  } catch(e) {
+    // fallback localStorage
+    localStorage.setItem('task_config', val);
+  }
+  TASKS = getAllTasks();
+  renderChecklist();
+}
 
 // ===== TASK MANAGEMENT (Admin only) =====
 let editingTaskId = null;
@@ -660,48 +678,38 @@ async function saveTask(){
     time: document.getElementById('task-time').value.trim() || '—',
     label: document.getElementById('task-label').value,
     title,
-    description: document.getElementById('task-desc').value.trim(),
+    desc: document.getElementById('task-desc').value.trim(),
   };
+  const cfg = CACHE.taskConfig;
   const isDefault = DEFAULT_TASKS.some(t=>t.id===editingTaskId);
-  try {
-    if(editingTaskId && isDefault){
-      // Upsert vào edited_tasks
-      const existing = CACHE.editedTasks.find(e=>e.task_id===editingTaskId);
-      if(existing){
-        await sb.from('edited_tasks').update({...updated, updated_at:new Date().toISOString()}).eq('task_id',editingTaskId);
-      } else {
-        await sb.from('edited_tasks').insert({id:'ed'+Date.now(), task_id:editingTaskId, ...updated});
-      }
-      showToast('Đã cập nhật công việc','success');
-    } else if(editingTaskId){
-      // Sửa custom task
-      await sb.from('custom_tasks').update({...updated}).eq('id',editingTaskId);
-      showToast('Đã cập nhật công việc','success');
-    } else {
-      // Thêm mới
-      await sb.from('custom_tasks').insert({id:'tc'+Date.now(), ...updated, sort_order:CACHE.customTasks.length});
-      showToast('Đã thêm công việc','success');
-    }
-    closeModal('modal-task');
-    await loadAll();
-  } catch { showToast('Lỗi lưu','error'); }
+  if(editingTaskId && isDefault){
+    if(!cfg.edited) cfg.edited = {};
+    cfg.edited[editingTaskId] = updated;
+  } else if(editingTaskId){
+    cfg.custom = (cfg.custom||[]).map(t => t.id===editingTaskId ? {...t,...updated} : t);
+  } else {
+    if(!cfg.custom) cfg.custom = [];
+    cfg.custom.push({id:'tc'+Date.now(), ...updated});
+  }
+  closeModal('modal-task');
+  showToast('Đã lưu','success');
+  await saveTaskConfig();
 }
 
 async function deleteTask(){
   if(!editingTaskId) return;
   if(!confirm('Xoá công việc này?')) return;
+  const cfg = CACHE.taskConfig;
   const isDefault = DEFAULT_TASKS.some(t=>t.id===editingTaskId);
-  try {
-    if(isDefault){
-      const existing = CACHE.deletedTasks.find(d=>d.task_id===editingTaskId);
-      if(!existing) await sb.from('deleted_tasks').insert({id:'del'+Date.now(), task_id:editingTaskId});
-    } else {
-      await sb.from('custom_tasks').delete().eq('id',editingTaskId);
-    }
-    closeModal('modal-task');
-    showToast('Đã xoá','success');
-    await loadAll();
-  } catch { showToast('Lỗi xoá','error'); }
+  if(isDefault){
+    if(!cfg.deleted) cfg.deleted = [];
+    if(!cfg.deleted.includes(editingTaskId)) cfg.deleted.push(editingTaskId);
+  } else {
+    cfg.custom = (cfg.custom||[]).filter(t=>t.id!==editingTaskId);
+  }
+  closeModal('modal-task');
+  showToast('Đã xoá','success');
+  await saveTaskConfig();
 }
 
 // ===== SYNC STATUS =====
@@ -725,39 +733,35 @@ function setSyncStatus(status, msg) {
 async function loadAll() {
   setSyncStatus('syncing','Đang tải dữ liệu...');
   try {
-    const [p,t,i,e,c,ct,dt,et] = await Promise.all([
+    const [p,t,i,e,c] = await Promise.all([
       sb.from('pairs').select('*').order('code'),
       sb.from('transactions').select('*').order('tx_date',{ascending:false}),
       sb.from('inventory').select('*').order('name'),
       sb.from('events').select('*').order('event_date',{ascending:false}),
       sb.from('checklist').select('*'),
-      sb.from('custom_tasks').select('*').order('sort_order'),
-      sb.from('deleted_tasks').select('*'),
-      sb.from('edited_tasks').select('*'),
     ]);
-    if (p.error||t.error||i.error||e.error||c.error||ct.error||dt.error||et.error) throw new Error('Load error');
+    if (p.error||t.error||i.error||e.error||c.error) throw new Error('Load error');
 
     CACHE.pairs = p.data || [];
     CACHE.transactions = t.data || [];
     CACHE.inventory = i.data || [];
     CACHE.events = e.data || [];
-    CACHE.customTasks = ct.data || [];
-    CACHE.deletedTasks = dt.data || [];
-    CACHE.editedTasks = et.data || [];
 
-    // Build checklist map: { date: { task_id: done } }
+    // Build checklist map, tách task config ra riêng
     CACHE.checklist = {};
     (c.data||[]).forEach(r => {
+      if(r.date === '__task_config__') {
+        try { CACHE.taskConfig = JSON.parse(r.note||'{}'); } catch{}
+        return;
+      }
       if (!CACHE.checklist[r.date]) CACHE.checklist[r.date] = {};
       CACHE.checklist[r.date][r.task_id] = r.done;
     });
 
-    // Rebuild TASKS sau mỗi lần load
+    // Rebuild TASKS
     TASKS = getAllTasks();
 
-    // Seed default inventory if empty
     if (CACHE.inventory.length === 0) await seedInventory();
-    // Seed default pairs if empty
     if (CACHE.pairs.length === 0) await seedPairs();
 
     setSyncStatus('ok','Đã đồng bộ');
@@ -822,9 +826,6 @@ function setupRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'inventory'}, () => loadAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'events'}, () => loadAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'checklist'}, () => loadAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'custom_tasks'}, () => loadAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'deleted_tasks'}, () => loadAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'edited_tasks'}, () => loadAll())
     .subscribe(status => {
       if (status==='SUBSCRIBED') setSyncStatus('ok','Realtime bật');
       if (status==='CLOSED'||status==='CHANNEL_ERROR') setSyncStatus('err','Mất kết nối realtime');
