@@ -312,6 +312,9 @@
       <span class="date-str" id="cl-date-str"></span>
       <button style="background:none;border:none;color:var(--accent);font-size:12px;font-family:inherit;cursor:pointer" onclick="resetChecklist()">Reset</button>
     </div>
+    <div id="cl-admin-bar" class="hidden" style="margin-bottom:12px">
+      <button class="btn btn-primary" onclick="openAddTask()">+ Thêm việc</button>
+    </div>
     <div class="card">
       <div class="card-header">
         <div class="card-title">Tất cả công việc</div>
@@ -542,6 +545,33 @@
   </div>
 </div>
 
+<!-- MODAL TASK -->
+<div class="modal-overlay" id="modal-task">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="task-modal-title">Thêm công việc</div>
+    <div class="form-group"><label class="form-label">Tên công việc</label><input class="form-input" id="task-title" placeholder="VD: Kiểm tra nhiệt độ lồng"></div>
+    <div class="form-group"><label class="form-label">Mô tả chi tiết</label><input class="form-input" id="task-desc" placeholder="VD: Dùng nhiệt kế đo..."></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Giờ</label><input class="form-input" id="task-time" placeholder="VD: 8:00"></div>
+      <div class="form-group"><label class="form-label">Nhóm</label>
+        <select class="form-select" id="task-label">
+          <option value="Sáng sớm">Sáng sớm</option>
+          <option value="Chiều">Chiều</option>
+          <option value="Tối">Tối</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-task')">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveTask()">Lưu</button>
+    </div>
+    <div style="margin-top:10px" id="task-delete-btn-wrap" class="hidden">
+      <button class="btn btn-danger" onclick="deleteTask()">Xoá công việc này</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ===== SUPABASE CONFIG =====
 const SB_URL = 'https://bnumqtjzbyrtavsdlleq.supabase.co';
@@ -558,7 +588,7 @@ let finViewMonth = new Date().getMonth(), finViewYear = new Date().getFullYear()
 let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{} };
 
 // ===== CHECKLIST TASKS =====
-const TASKS = [
+const DEFAULT_TASKS = [
   {id:'t01',time:'6:00', label:'Sáng sớm',title:'Kiểm tra tổng quan đàn',desc:'Quan sát hành vi, phát hiện chim yếu hoặc bệnh'},
   {id:'t02',time:'6:15', label:'Sáng sớm',title:'Thay nước sạch',desc:'Thay toàn bộ bình uống'},
   {id:'t03',time:'6:30', label:'Sáng sớm',title:'Cho ăn thức ăn mềm',desc:'Hỗn hợp dền + bánh mì + trứng + cà rốt xay'},
@@ -574,6 +604,99 @@ const TASKS = [
   {id:'t13',time:'18:35',label:'Tối',     title:'Kiểm tra bạt chắn gió',desc:'Đảm bảo đã che kín (Di Linh tối lạnh)'},
   {id:'t14',time:'18:45',label:'Tối',     title:'Kiểm tra chim non lần cuối',desc:'Đảm bảo đủ ấm, được mớm mồi'},
 ];
+
+function getCustomTasks(){ try{ return JSON.parse(localStorage.getItem('custom_tasks')||'[]'); }catch{ return []; } }
+function getDeletedDefaultIds(){ try{ return JSON.parse(localStorage.getItem('deleted_default_tasks')||'[]'); }catch{ return []; } }
+function getEditedDefaults(){ try{ return JSON.parse(localStorage.getItem('edited_default_tasks')||'{}'); }catch{ return {}; } }
+function saveCustomTasks(arr){ localStorage.setItem('custom_tasks', JSON.stringify(arr)); }
+
+function getAllTasks(){
+  const deleted = getDeletedDefaultIds();
+  const edited = getEditedDefaults();
+  const customs = getCustomTasks();
+  const defaults = DEFAULT_TASKS
+    .filter(t => !deleted.includes(t.id))
+    .map(t => edited[t.id] ? {...t, ...edited[t.id]} : t);
+  return [...defaults, ...customs];
+}
+let TASKS = getAllTasks();
+
+// ===== TASK MANAGEMENT (Admin only) =====
+let editingTaskId = null;
+
+function openAddTask(){
+  editingTaskId = null;
+  document.getElementById('task-modal-title').textContent = 'Thêm công việc';
+  document.getElementById('task-title').value = '';
+  document.getElementById('task-desc').value = '';
+  document.getElementById('task-time').value = '';
+  document.getElementById('task-label').value = 'Sáng sớm';
+  document.getElementById('task-delete-btn-wrap').classList.add('hidden');
+  openModal('modal-task');
+}
+
+function openEditTask(taskId, e){
+  e.stopPropagation();
+  const t = TASKS.find(x=>x.id===taskId);
+  if(!t) return;
+  editingTaskId = taskId;
+  document.getElementById('task-modal-title').textContent = 'Sửa công việc';
+  document.getElementById('task-title').value = t.title;
+  document.getElementById('task-desc').value = t.desc;
+  document.getElementById('task-time').value = t.time;
+  document.getElementById('task-label').value = t.label;
+  document.getElementById('task-delete-btn-wrap').classList.remove('hidden');
+  openModal('modal-task');
+}
+
+function saveTask(){
+  const title = document.getElementById('task-title').value.trim();
+  if(!title){ showToast('Nhập tên công việc!','error'); return; }
+  const updated = {
+    time: document.getElementById('task-time').value.trim() || '—',
+    label: document.getElementById('task-label').value,
+    title,
+    desc: document.getElementById('task-desc').value.trim(),
+  };
+  const isDefault = DEFAULT_TASKS.some(t=>t.id===editingTaskId);
+  if(editingTaskId && isDefault){
+    // Lưu override cho task mặc định
+    const edited = getEditedDefaults();
+    edited[editingTaskId] = updated;
+    localStorage.setItem('edited_default_tasks', JSON.stringify(edited));
+    showToast('Đã cập nhật công việc','success');
+  } else if(editingTaskId){
+    // Sửa task custom
+    let customs = getCustomTasks().map(t => t.id===editingTaskId ? {...t,...updated} : t);
+    saveCustomTasks(customs);
+    showToast('Đã cập nhật công việc','success');
+  } else {
+    // Thêm mới
+    const newTask = { id:'tc'+Date.now(), ...updated, custom:true };
+    saveCustomTasks([...getCustomTasks(), newTask]);
+    showToast('Đã thêm công việc','success');
+  }
+  TASKS = getAllTasks();
+  closeModal('modal-task');
+  renderChecklist();
+}
+
+function deleteTask(){
+  if(!editingTaskId) return;
+  if(!confirm('Xoá công việc này?')) return;
+  const isDefault = DEFAULT_TASKS.some(t=>t.id===editingTaskId);
+  if(isDefault){
+    const deleted = getDeletedDefaultIds();
+    if(!deleted.includes(editingTaskId)) deleted.push(editingTaskId);
+    localStorage.setItem('deleted_default_tasks', JSON.stringify(deleted));
+  } else {
+    saveCustomTasks(getCustomTasks().filter(t=>t.id!==editingTaskId));
+  }
+  TASKS = getAllTasks();
+  closeModal('modal-task');
+  showToast('Đã xoá','success');
+  renderChecklist();
+}
 
 // ===== SYNC STATUS =====
 function setSyncStatus(status, msg) {
@@ -719,6 +842,7 @@ function loginAs(role){
   badge.textContent=role==='admin'?'👑 Henry':'👤 Hiếu';
   badge.className='header-role'+(role==='admin'?' admin':'');
   document.getElementById('admin-settings').classList.toggle('hidden',role!=='admin');
+  document.getElementById('cl-admin-bar').classList.toggle('hidden',role!=='admin');
   initApp();
 }
 function logout(){
@@ -802,6 +926,7 @@ function renderHome(){
 
 // ===== CHECKLIST =====
 function renderChecklist(){
+  TASKS = getAllTasks();
   const today=new Date().toISOString().split('T')[0];
   const checked=TASKS.filter(t=>CACHE.checklist[today]?.[t.id]).length;
   const pct=Math.round(checked/TASKS.length*100);
@@ -816,10 +941,17 @@ function renderChecklist(){
     html+=`<div class="time-group"><div class="time-group-label">${grp}</div></div>`;
     tasks.forEach(t=>{
       const done=!!CACHE.checklist[today]?.[t.id];
+      const isCustom=!!t.custom;
+      const editBtn=currentRole==='admin'
+        ?`<button onclick="openEditTask('${t.id}',event)" style="background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;padding:2px 6px;flex-shrink:0">Sửa</button>`
+        :'';
       html+=`<div class="check-item ${done?'done':''}" onclick="toggleTask('${t.id}')">
         <div class="check-box ${done?'checked':''}"></div>
         <div class="check-text">
-          <div class="check-title ${done?'done':''}">${t.title}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="check-title ${done?'done':''}">${t.title}</span>
+            ${editBtn}
+          </div>
           <div class="check-time-label">${t.time} — ${t.desc}</div>
         </div></div>`;
     });
@@ -1285,4 +1417,3 @@ document.addEventListener('keydown',e=>{
 </script>
 </body>
 </html>
-
