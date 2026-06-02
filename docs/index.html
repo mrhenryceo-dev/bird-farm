@@ -478,20 +478,90 @@
       <button class="btn btn-secondary" onclick="closeModal('modal-pair-detail')">Đóng</button>
       <button class="btn btn-primary" onclick="editPair()">Chỉnh sửa</button>
     </div>
-    <div style="margin-top:10px"><button class="btn btn-green" onclick="openEventLog()">+ Ghi sự kiện</button></div>
-    <!-- NHẬT KÝ THEO THÁNG -->
+    <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btn-green" onclick="openDailyLog()">📋 Ghi hôm nay</button>
+      <button class="btn btn-secondary" onclick="openEventLog()">+ Sự kiện</button>
+    </div>
+
+    <!-- TABS NHẬT KÝ -->
     <div style="margin-top:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">Nhật ký sự kiện</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <button onclick="changeEvtMonth(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">‹</button>
-          <span id="evt-month-label" style="font-size:12px;font-weight:600;color:var(--text);min-width:72px;text-align:center"></span>
-          <button onclick="changeEvtMonth(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">›</button>
-        </div>
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px">
+        <button id="tab-daily-btn" onclick="switchLogTab('daily')" style="flex:1;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-size:13px;font-weight:600;font-family:inherit;padding:8px 0;cursor:pointer">📋 Nhật ký ngày</button>
+        <button id="tab-event-btn" onclick="switchLogTab('event')" style="flex:1;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:13px;font-weight:600;font-family:inherit;padding:8px 0;cursor:pointer">📌 Sự kiện</button>
       </div>
-      <div id="evt-log-list"></div>
+
+      <!-- TAB NHẬT KÝ NGÀY -->
+      <div id="tab-daily">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;text-align:center">30 ngày gần nhất — kéo lên xem thêm</div>
+        <div id="daily-log-list"></div>
+      </div>
+
+      <!-- TAB SỰ KIỆN -->
+      <div id="tab-event" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px">Sự kiện</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button onclick="changeEvtMonth(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">‹</button>
+            <span id="evt-month-label" style="font-size:12px;font-weight:600;color:var(--text);min-width:72px;text-align:center"></span>
+            <button onclick="changeEvtMonth(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">›</button>
+          </div>
+        </div>
+        <div id="evt-log-list"></div>
+      </div>
     </div>
     <div style="margin-top:14px"><button class="btn btn-danger" onclick="deletePair()">Xoá cặp này</button></div>
+  </div>
+</div>
+
+<!-- MODAL NHẬT KÝ NGÀY -->
+<div class="modal-overlay" id="modal-daily">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 Nhật ký hôm nay</div>
+    <div class="modal-sub" id="daily-sub"></div>
+    <div class="form-group">
+      <label class="form-label">Ngày</label>
+      <input class="form-input" id="daily-date" type="date">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">🥚 Trứng</label>
+        <input class="form-input" id="daily-eggs" type="number" inputmode="numeric" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🐣 Chim non</label>
+        <input class="form-input" id="daily-chicks" type="number" inputmode="numeric" placeholder="0" min="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">👫 Bố mẹ</label>
+      <select class="form-select" id="daily-parents">
+        <option value="bình thường">Bình thường</option>
+        <option value="khoẻ mạnh">Khoẻ mạnh</option>
+        <option value="một con yếu">Một con yếu</option>
+        <option value="có dấu hiệu bệnh">Có dấu hiệu bệnh</option>
+        <option value="không ấp trứng">Không ấp trứng</option>
+        <option value="không mớm mồi">Không mớm mồi</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">🪹 Tổ</label>
+      <select class="form-select" id="daily-nest">
+        <option value="bình thường">Bình thường</option>
+        <option value="khô ráo">Khô ráo</option>
+        <option value="ẩm ướt">Ẩm ướt</option>
+        <option value="cần thay dăm">Cần thay dăm</option>
+        <option value="đã thay dăm">Đã thay dăm</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📝 Ghi chú thêm</label>
+      <textarea class="form-textarea" id="daily-note" placeholder="Quan sát đặc biệt hôm nay..."></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" onclick="closeDailyLog()">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveDailyLog()">Lưu</button>
+    </div>
   </div>
 </div>
 
@@ -1097,7 +1167,6 @@ async function savePair(){
 function openPairDetail(id){
   const p=CACHE.pairs.find(x=>x.id===id); if(!p) return;
   currentPairId=id;
-  // Reset tháng nhật ký về tháng hiện tại
   evtViewMonth=new Date().getMonth();
   evtViewYear=new Date().getFullYear();
   document.getElementById('pd-title').textContent='Cặp '+p.code;
@@ -1112,8 +1181,107 @@ function openPairDetail(id){
     <div class="report-row"><span class="lbl">Chim non</span><span class="val">${p.chicks||0} con</span></div>
     ${p.note?`<div class="report-row"><span class="lbl">Ghi chú</span><span class="val">${p.note}</span></div>`:''}`;
   openModal('modal-pair-detail');
-  // Render nhật ký sau khi modal mở
-  setTimeout(renderEvtLog, 50);
+  setTimeout(()=>{ switchLogTab('daily'); }, 50);
+}
+
+function switchLogTab(tab){
+  const isDaily = tab==='daily';
+  document.getElementById('tab-daily').style.display = isDaily?'block':'none';
+  document.getElementById('tab-event').style.display = isDaily?'none':'block';
+  document.getElementById('tab-daily-btn').style.borderBottomColor = isDaily?'var(--accent)':'transparent';
+  document.getElementById('tab-daily-btn').style.color = isDaily?'var(--accent)':'var(--text2)';
+  document.getElementById('tab-event-btn').style.borderBottomColor = isDaily?'transparent':'var(--accent)';
+  document.getElementById('tab-event-btn').style.color = isDaily?'var(--text2)':'var(--accent)';
+  if(isDaily) renderDailyLog();
+  else renderEvtLog();
+}
+
+function openDailyLog(){
+  const p=CACHE.pairs.find(x=>x.id===currentPairId);
+  document.getElementById('daily-sub').textContent='Cặp '+(p?.code||'');
+  document.getElementById('daily-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('daily-eggs').value=p?.eggs||0;
+  document.getElementById('daily-chicks').value=p?.chicks||0;
+  document.getElementById('daily-parents').value='bình thường';
+  document.getElementById('daily-nest').value='bình thường';
+  document.getElementById('daily-note').value='';
+  closeModal('modal-pair-detail');
+  openModal('modal-daily');
+}
+
+function closeDailyLog(){
+  closeModal('modal-daily');
+  openPairDetail(currentPairId);
+}
+
+async function saveDailyLog(){
+  const date=document.getElementById('daily-date').value;
+  const eggs=document.getElementById('daily-eggs').value;
+  const chicks=document.getElementById('daily-chicks').value;
+  const parents=document.getElementById('daily-parents').value;
+  const nest=document.getElementById('daily-nest').value;
+  const note=document.getElementById('daily-note').value.trim();
+  // Encode thành JSON lưu vào field note của events
+  const payload=JSON.stringify({eggs,chicks,parents,nest,note});
+  const data={id:'dl'+Date.now(), pair_id:currentPairId, type:'__daily__', event_date:date, note:payload};
+  try {
+    await sb.from('events').insert(data);
+    closeModal('modal-daily');
+    showToast('Đã lưu nhật ký','success');
+    await loadAll();
+    openPairDetail(currentPairId);
+  } catch { showToast('Lỗi lưu','error'); }
+}
+
+function renderDailyLog(){
+  const container=document.getElementById('daily-log-list');
+  if(!container) return;
+  // Lấy 30 ngày gần nhất có nhật ký của cặp này
+  const logs=CACHE.events.filter(e=>e.pair_id===currentPairId&&e.type==='__daily__')
+    .sort((a,b)=>b.event_date.localeCompare(a.event_date))
+    .slice(0,30);
+  if(logs.length===0){
+    container.innerHTML='<div style="font-size:13px;color:var(--text3);padding:20px 0;text-align:center">Chưa có nhật ký nào.<br>Bấm "Ghi hôm nay" để bắt đầu.</div>';
+    return;
+  }
+  container.innerHTML=logs.map(ev=>{
+    let d={eggs:'?',chicks:'?',parents:'?',nest:'?',note:''};
+    try{ d=JSON.parse(ev.note); }catch{}
+    const dateStr=ev.event_date;
+    const dateObj=new Date(dateStr);
+    const dayLabel=dateObj.toLocaleDateString('vi-VN',{weekday:'short',day:'2-digit',month:'2-digit'});
+    const isToday=dateStr===new Date().toISOString().split('T')[0];
+    return `<div style="background:var(--surface2);border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:${isToday?'var(--accent)':'var(--text)'}">${dayLabel}${isToday?' — Hôm nay':''}</div>
+        <button onclick="deleteDailyLog('${ev.id}',event)" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0;line-height:1">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <div style="background:var(--surface3);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">🥚 TRỨNG</div>
+          <div style="font-size:20px;font-weight:700;color:var(--yellow)">${d.eggs}</div>
+        </div>
+        <div style="background:var(--surface3);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">🐣 CHIM NON</div>
+          <div style="font-size:20px;font-weight:700;color:var(--teal)">${d.chicks}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:3px">👫 Bố mẹ: <span style="color:var(--text)">${d.parents}</span></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:${d.note?'6px':'0'}">🪹 Tổ: <span style="color:var(--text)">${d.nest}</span></div>
+      ${d.note?`<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border);padding-top:6px;margin-top:4px">📝 ${d.note}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function deleteDailyLog(evtId, e){
+  e.stopPropagation();
+  if(!confirm('Xoá nhật ký này?')) return;
+  try {
+    await sb.from('events').delete().eq('id',evtId);
+    showToast('Đã xoá','success');
+    await loadAll();
+    renderDailyLog();
+  } catch { showToast('Lỗi xoá','error'); }
 }
 
 function editPair(){
