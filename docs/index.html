@@ -1176,9 +1176,6 @@ function openPairDetail(id){
     <div class="report-row"><span class="lbl">Con mái</span><span class="val">${p.female||'Chưa ghi'}</span></div>
     <div class="report-row"><span class="lbl">Đột biến</span><span class="val">${p.mutation||'Chưa xác định'}</span></div>
     <div class="report-row"><span class="lbl">Ngày ghép</span><span class="val">${p.pair_date||'—'}</span></div>
-    <div class="report-row"><span class="lbl">Đẻ gần nhất</span><span class="val">${p.lastlay||'—'}</span></div>
-    <div class="report-row"><span class="lbl">Trứng</span><span class="val">${p.eggs||0} quả</span></div>
-    <div class="report-row"><span class="lbl">Chim non</span><span class="val">${p.chicks||0} con</span></div>
     ${p.note?`<div class="report-row"><span class="lbl">Ghi chú</span><span class="val">${p.note}</span></div>`:''}`;
   openModal('modal-pair-detail');
   setTimeout(()=>{ switchLogTab('daily'); }, 50);
