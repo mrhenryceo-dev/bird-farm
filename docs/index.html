@@ -1453,7 +1453,10 @@ function renderFinance(){
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           <div class="tx-amount ${t.type}">${t.type==='income'?'+':'-'}${fmtM(t.amount)}</div>
-          <button onclick="deleteTx('${t.id}',event)" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:0;font-family:inherit">xoá</button>
+          <div style="display:flex;gap:8px">
+            <button onclick="editTx('${t.id}',event)" style="background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:0;font-family:inherit">✏️ sửa</button>
+            <button onclick="deleteTx('${t.id}',event)" style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:0;font-family:inherit">xoá</button>
+          </div>
         </div>
       </div>`).join('');
 }
@@ -1463,22 +1466,48 @@ function setTxType(type){
   document.getElementById('txtype-inc').classList.toggle('active',type==='income');
   document.getElementById('txtype-exp').classList.toggle('active',type==='expense');
 }
+
+let editingTxId = null;
+
 function openAddTx(){
+  editingTxId = null;
   document.getElementById('tx-desc').value=''; document.getElementById('tx-amount').value='';
   document.getElementById('tx-note').value='';
   document.getElementById('tx-date').value=new Date().toISOString().split('T')[0];
+  document.querySelector('#modal-tx .modal-title').textContent='Ghi giao dịch';
   setTxType('income'); openModal('modal-tx');
 }
+
+function editTx(id, e){
+  e.stopPropagation();
+  const t=CACHE.transactions.find(x=>x.id===id); if(!t) return;
+  editingTxId=id;
+  document.querySelector('#modal-tx .modal-title').textContent='Sửa giao dịch';
+  setTxType(t.type);
+  document.getElementById('tx-desc').value=t.description||'';
+  document.getElementById('tx-amount').value=t.amount||'';
+  document.getElementById('tx-date').value=t.tx_date||'';
+  document.getElementById('tx-cat').value=t.category||'Khác';
+  document.getElementById('tx-note').value=t.note||'';
+  openModal('modal-tx');
+}
+
 async function saveTx(){
   const desc=document.getElementById('tx-desc').value.trim();
   const amount=parseFloat(document.getElementById('tx-amount').value);
   if(!desc){showToast('Nhập mô tả!','error');return;}
   if(!amount||amount<=0){showToast('Nhập số tiền!','error');return;}
-  const data={id:'tx'+Date.now(),type:txType,description:desc,amount,category:document.getElementById('tx-cat').value,tx_date:document.getElementById('tx-date').value,note:document.getElementById('tx-note').value.trim()};
+  const data={type:txType,description:desc,amount,category:document.getElementById('tx-cat').value,tx_date:document.getElementById('tx-date').value,note:document.getElementById('tx-note').value.trim()};
   try {
-    await sb.from('transactions').insert(data);
-    closeModal('modal-tx'); showToast('Đã ghi giao dịch','success');
-    await loadAll();
+    if(editingTxId){
+      await sb.from('transactions').update(data).eq('id',editingTxId);
+      showToast('Đã cập nhật','success');
+    } else {
+      await sb.from('transactions').insert({id:'tx'+Date.now(),...data});
+      showToast('Đã ghi giao dịch','success');
+    }
+    editingTxId=null;
+    closeModal('modal-tx'); await loadAll();
   } catch { showToast('Lỗi lưu','error'); }
 }
 async function deleteTx(id,e){
