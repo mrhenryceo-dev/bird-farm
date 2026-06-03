@@ -587,10 +587,16 @@
       </select>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Số lượng</label><input class="form-input" id="inv-qty" type="number" inputmode="decimal" placeholder="0"></div>
       <div class="form-group"><label class="form-label">Đơn vị</label><input class="form-input" id="inv-unit" placeholder="kg, gói..."></div>
+      <div class="form-group"><label class="form-label">Ngưỡng cảnh báo</label><input class="form-input" id="inv-threshold" type="number" inputmode="decimal" placeholder="VD: 5"></div>
     </div>
-    <div class="form-group"><label class="form-label">Ngưỡng cảnh báo</label><input class="form-input" id="inv-threshold" type="number" inputmode="decimal" placeholder="Cảnh báo khi dưới mức này"></div>
+    <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📦 Kiểm kê</div>
+    <div class="form-group"><label class="form-label">Ngày kiểm kê</label><input class="form-input" id="inv-stock-date" type="date"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Tồn kho ban đầu</label><input class="form-input" id="inv-initial-qty" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Tiêu hao / ngày</label><input class="form-input" id="inv-daily-use" type="number" inputmode="decimal" placeholder="0"></div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <button class="btn btn-secondary" onclick="closeModal('modal-inv')">Huỷ</button>
       <button class="btn btn-primary" onclick="saveInv()">Lưu</button>
@@ -1520,17 +1526,32 @@ async function deleteTx(id,e){
 }
 
 // ===== INVENTORY =====
+function calcRemaining(i){
+  // Tính tồn kho còn lại dựa trên ngày kiểm kê và tiêu hao mỗi ngày
+  if(!i.stock_date || !i.initial_qty || !i.daily_use) return null;
+  const days = Math.floor((new Date() - new Date(i.stock_date)) / 86400000);
+  return Math.max(0, parseFloat(i.initial_qty) - days * parseFloat(i.daily_use));
+}
+
 function renderInventory(){
   document.getElementById('inv-list').innerHTML=CACHE.inventory.length===0?
     `<div class="empty-state"><div class="empty-icon">📦</div>Chưa có vật tư</div>`:
     CACHE.inventory.map(i=>{
-      const low=i.threshold>0&&i.qty<=i.threshold;
-      const warn=!low&&i.threshold>0&&i.qty<=i.threshold*1.5;
+      const remaining = calcRemaining(i);
+      const displayQty = remaining !== null ? Math.round(remaining*10)/10 : i.qty;
+      const low = i.threshold>0 && displayQty<=i.threshold;
+      const warn = !low && i.threshold>0 && displayQty<=i.threshold*1.5;
+      // Tính ngày còn lại đến hết
+      let daysLeft = null;
+      if(i.daily_use>0 && remaining!==null) daysLeft = Math.floor(remaining/parseFloat(i.daily_use));
       return `
         <div class="inv-item">
           <div class="inv-left">
             <div class="inv-name">${i.name}</div>
             <div class="inv-cat">${i.category}</div>
+            ${i.stock_date?`<div style="font-size:11px;color:var(--text3);margin-top:2px">Kiểm kê: ${i.stock_date} · Ban đầu: ${i.initial_qty} ${i.unit}</div>`:''}
+            ${i.daily_use>0?`<div style="font-size:11px;color:var(--text3)">Tiêu hao: ${i.daily_use} ${i.unit}/ngày${daysLeft!==null?` · Còn ~${daysLeft} ngày`:''}</div>`:''}
+            ${low?`<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:3px">⚠️ Sắp hết — cần nhập thêm!</div>`:''}
             <div class="qty-btns" style="margin-top:8px">
               <button class="qty-btn" onclick="adjustQty('${i.id}',-1)">−</button>
               <button class="qty-btn" onclick="adjustQty('${i.id}',1)">+</button>
@@ -1539,9 +1560,9 @@ function renderInventory(){
             </div>
           </div>
           <div class="inv-right">
-            <div class="inv-qty ${low?'low':warn?'warn':''}">${i.qty}</div>
+            <div class="inv-qty ${low?'low':warn?'warn':''}">${displayQty}</div>
             <div class="inv-unit">${i.unit}</div>
-            ${low?'<div class="inv-alert-badge">Sắp hết!</div>':''}
+            ${remaining!==null?`<div style="font-size:10px;color:var(--text3);margin-top:2px">còn lại</div>`:''}
           </div>
         </div>`;
     }).join('');
@@ -1559,8 +1580,9 @@ async function adjustQty(id,delta){
 
 function openAddInv(){
   editingInvId=null;
-  ['inv-name','inv-qty','inv-unit','inv-threshold'].forEach(id=>document.getElementById(id).value='');
+  ['inv-name','inv-unit','inv-threshold','inv-initial-qty','inv-daily-use'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('inv-cat').value='Thức ăn';
+  document.getElementById('inv-stock-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('inv-modal-title').textContent='Thêm vật tư';
   openModal('modal-inv');
 }
@@ -1570,15 +1592,35 @@ function openEditInv(id){
   document.getElementById('inv-modal-title').textContent='Chỉnh sửa vật tư';
   document.getElementById('inv-name').value=i.name;
   document.getElementById('inv-cat').value=i.category;
-  document.getElementById('inv-qty').value=i.qty;
   document.getElementById('inv-unit').value=i.unit;
-  document.getElementById('inv-threshold').value=i.threshold;
+  document.getElementById('inv-threshold').value=i.threshold||'';
+  document.getElementById('inv-stock-date').value=i.stock_date||new Date().toISOString().split('T')[0];
+  document.getElementById('inv-initial-qty').value=i.initial_qty||'';
+  document.getElementById('inv-daily-use').value=i.daily_use||'';
   openModal('modal-inv');
 }
 async function saveInv(){
   const name=document.getElementById('inv-name').value.trim();
   if(!name){showToast('Nhập tên!','error');return;}
-  const data={name,category:document.getElementById('inv-cat').value,qty:parseFloat(document.getElementById('inv-qty').value)||0,unit:document.getElementById('inv-unit').value.trim()||'cái',threshold:parseFloat(document.getElementById('inv-threshold').value)||0};
+  const stockDate=document.getElementById('inv-stock-date').value;
+  const initialQty=parseFloat(document.getElementById('inv-initial-qty').value)||0;
+  const dailyUse=parseFloat(document.getElementById('inv-daily-use').value)||0;
+  // Tính qty hiện tại từ kiểm kê
+  let qty = initialQty;
+  if(stockDate && dailyUse>0){
+    const days=Math.floor((new Date()-new Date(stockDate))/86400000);
+    qty=Math.max(0, initialQty - days*dailyUse);
+  }
+  const data={
+    name,
+    category:document.getElementById('inv-cat').value,
+    qty:Math.round(qty*10)/10,
+    unit:document.getElementById('inv-unit').value.trim()||'cái',
+    threshold:parseFloat(document.getElementById('inv-threshold').value)||0,
+    stock_date:stockDate,
+    initial_qty:initialQty,
+    daily_use:dailyUse,
+  };
   try {
     if(editingInvId){ await sb.from('inventory').update(data).eq('id',editingInvId); }
     else { await sb.from('inventory').insert({id:'inv'+Date.now(),...data}); }
