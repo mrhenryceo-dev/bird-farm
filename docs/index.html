@@ -478,9 +478,8 @@
       <button class="btn btn-secondary" onclick="closeModal('modal-pair-detail')">Đóng</button>
       <button class="btn btn-primary" onclick="editPair()">Chỉnh sửa</button>
     </div>
-    <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-green" onclick="openDailyLog()">📋 Ghi hôm nay</button>
-      <button class="btn btn-secondary" onclick="openEventLog()">+ Sự kiện</button>
+    <div style="margin-top:10px">
+      <button class="btn btn-green" onclick="openDailyLog()" style="width:100%">📋 Ghi hôm nay</button>
     </div>
 
     <!-- TABS NHẬT KÝ -->
@@ -532,6 +531,10 @@
         <label class="form-label">🐣 Chim non</label>
         <input class="form-input" id="daily-chicks" type="number" inputmode="numeric" placeholder="0" min="0">
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">💀 Trứng hỏng</label>
+      <input class="form-input" id="daily-bad-eggs" type="number" inputmode="numeric" placeholder="0" min="0">
     </div>
     <div class="form-group">
       <label class="form-label">👫 Bố mẹ</label>
@@ -1107,19 +1110,38 @@ function renderBirds(){
   document.getElementById('pair-count').textContent=CACHE.pairs.length;
   document.getElementById('pairs-list').innerHTML=pairs.length===0?
     `<div class="empty-state"><div class="empty-icon">🕊</div>Không có cặp nào</div>`:
-    pairs.map(p=>`
+    pairs.map(p=>{
+      // Lấy tất cả nhật ký ngày của cặp này
+      const logs=CACHE.events.filter(e=>e.pair_id===p.id&&e.type==='__daily__')
+        .sort((a,b)=>b.event_date.localeCompare(a.event_date));
+      // Số liệu từ nhật ký gần nhất
+      let latestEggs=p.eggs||0, latestChicks=p.chicks||0;
+      if(logs.length>0){
+        try{ const d=JSON.parse(logs[0].note); latestEggs=d.eggs||0; latestChicks=d.chicks||0; }catch{}
+      }
+      // Ngày đẻ đầu tiên và gần nhất từ nhật ký
+      const allDates=logs.map(l=>l.event_date).sort();
+      const firstDate=allDates.length>0?allDates[0]:'—';
+      const lastDate=allDates.length>0?allDates[allDates.length-1]:'—';
+      // Tổng trứng và chim non tích lũy từ nhật ký (lấy max mỗi ngày)
+      let totalEggsHist=0, totalChicksHist=0;
+      logs.forEach(l=>{ try{ const d=JSON.parse(l.note); totalEggsHist+=Number(d.eggs||0); totalChicksHist+=Number(d.chicks||0); }catch{} });
+      return `
       <div class="pair-item" onclick="openPairDetail('${p.id}')">
         <div class="pair-header">
           <div class="pair-code">${p.code}</div>
           <div class="pair-status ${SC[p.status]}">${SL[p.status]}</div>
         </div>
         <div class="pair-colors">${p.male||'?'} × ${p.female||'?'}${p.mutation?' — '+p.mutation:''}</div>
-        <div class="pair-meta">
-          <span>Trứng: <strong>${p.eggs||0}</strong></span>
-          <span>Non: <strong>${p.chicks||0}</strong></span>
-          ${p.lastlay?`<span>Đẻ gần: <strong>${p.lastlay}</strong></span>`:''}
+        <div class="pair-meta" style="flex-wrap:wrap;gap:6px">
+          <span>Trứng: <strong>${latestEggs}</strong></span>
+          <span>Non: <strong>${latestChicks}</strong></span>
+          ${firstDate!=='—'?`<span>Đẻ đầu: <strong>${firstDate.slice(5).replace('-','/')}</strong></span>`:''}
+          ${lastDate!=='—'&&lastDate!==firstDate?`<span>Đẻ gần: <strong>${lastDate.slice(5).replace('-','/')}</strong></span>`:''}
         </div>
-      </div>`).join('');
+        ${logs.length>0?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Tổng lịch sử: ${totalEggsHist} trứng · ${totalChicksHist} con non · ${logs.length} lần ghi</div>`:''}
+      </div>`;
+    }).join('');
 }
 
 function openAddPair(){
@@ -1199,6 +1221,7 @@ function openDailyLog(){
   document.getElementById('daily-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('daily-eggs').value=p?.eggs||0;
   document.getElementById('daily-chicks').value=p?.chicks||0;
+  document.getElementById('daily-bad-eggs').value='0';
   document.getElementById('daily-parents').value='bình thường';
   document.getElementById('daily-nest').value='bình thường';
   document.getElementById('daily-note').value='';
@@ -1215,11 +1238,11 @@ async function saveDailyLog(){
   const date=document.getElementById('daily-date').value;
   const eggs=document.getElementById('daily-eggs').value;
   const chicks=document.getElementById('daily-chicks').value;
+  const badEggs=document.getElementById('daily-bad-eggs').value||'0';
   const parents=document.getElementById('daily-parents').value;
   const nest=document.getElementById('daily-nest').value;
   const note=document.getElementById('daily-note').value.trim();
-  // Encode thành JSON lưu vào field note của events
-  const payload=JSON.stringify({eggs,chicks,parents,nest,note});
+  const payload=JSON.stringify({eggs,chicks,badEggs,parents,nest,note});
   const data={id:'dl'+Date.now(), pair_id:currentPairId, type:'__daily__', event_date:date, note:payload};
   try {
     await sb.from('events').insert(data);
@@ -1253,10 +1276,14 @@ function renderDailyLog(){
         <div style="font-size:13px;font-weight:700;color:${isToday?'var(--accent)':'var(--text)'}">${dayLabel}${isToday?' — Hôm nay':''}</div>
         <button onclick="deleteDailyLog('${ev.id}',event)" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0;line-height:1">×</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
         <div style="background:var(--surface3);border-radius:6px;padding:8px;text-align:center">
           <div style="font-size:10px;color:var(--text3);margin-bottom:2px">🥚 TRỨNG</div>
           <div style="font-size:20px;font-weight:700;color:var(--yellow)">${d.eggs}</div>
+        </div>
+        <div style="background:var(--surface3);border-radius:6px;padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">💀 HỎNG</div>
+          <div style="font-size:20px;font-weight:700;color:var(--red)">${d.badEggs||0}</div>
         </div>
         <div style="background:var(--surface3);border-radius:6px;padding:8px;text-align:center">
           <div style="font-size:10px;color:var(--text3);margin-bottom:2px">🐣 CHIM NON</div>
