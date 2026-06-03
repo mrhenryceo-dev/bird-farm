@@ -1631,13 +1631,26 @@ async function saveInv(){
 // ===== REPORT =====
 function renderReport(){
   const pairs=CACHE.pairs;
+  // Lấy số trứng và chim non từ nhật ký gần nhất của mỗi cặp
+  function getLatest(pairId, field){
+    const logs=CACHE.events.filter(e=>e.pair_id===pairId&&e.type==='__daily__')
+      .sort((a,b)=>b.event_date.localeCompare(a.event_date));
+    if(logs.length===0) return 0;
+    try{ return Number(JSON.parse(logs[0].note)[field])||0; }catch{ return 0; }
+  }
+  const totalEggs = pairs.reduce((s,p)=>s+getLatest(p.id,'eggs'),0);
+  const totalChicks = pairs.reduce((s,p)=>s+getLatest(p.id,'chicks'),0);
+  const eggPairs = pairs.filter(p=>p.status==='egg');
+  const chickPairs = pairs.filter(p=>p.status==='chick');
+  const dailyLogs = CACHE.events.filter(e=>e.type==='__daily__').length;
+
   document.getElementById('rpt-overview').innerHTML=`
     <div class="report-row"><span class="lbl">Tổng cặp bố mẹ</span><span class="val">${pairs.length} cặp</span></div>
-    <div class="report-row"><span class="lbl">Ấp trứng</span><span class="val">${pairs.filter(p=>p.status==='egg').length} cặp — ${pairs.reduce((s,p)=>s+(p.eggs||0),0)} trứng</span></div>
-    <div class="report-row"><span class="lbl">Có chim non</span><span class="val">${pairs.filter(p=>p.status==='chick').length} cặp — ${pairs.reduce((s,p)=>s+(p.chicks||0),0)} con</span></div>
+    <div class="report-row"><span class="lbl">Ấp trứng</span><span class="val">${eggPairs.length} cặp — ${totalEggs} trứng</span></div>
+    <div class="report-row"><span class="lbl">Có chim non</span><span class="val">${chickPairs.length} cặp — ${totalChicks} con</span></div>
     <div class="report-row"><span class="lbl">Đang sinh sản</span><span class="val">${pairs.filter(p=>p.status==='active').length} cặp</span></div>
     <div class="report-row"><span class="lbl">Nghỉ</span><span class="val">${pairs.filter(p=>p.status==='rest').length} cặp</span></div>
-    <div class="report-row"><span class="lbl">Sự kiện đã ghi</span><span class="val">${CACHE.events.length} sự kiện</span></div>`;
+    <div class="report-row"><span class="lbl">Nhật ký ngày đã ghi</span><span class="val">${dailyLogs} lần</span></div>`;
   let finHtml='';
   const now=new Date();
   for(let i=2;i>=0;i--){
