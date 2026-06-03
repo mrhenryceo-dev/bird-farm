@@ -216,6 +216,18 @@
   ::-webkit-scrollbar{width:4px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
+
+  /* DARK MODE */
+  body.dark {
+    --bg:#0d1117;--surface:#161b22;--surface2:#1e242d;--surface3:#252d38;
+    --border:rgba(255,255,255,0.07);--text:#e6edf3;--text2:#8b949e;--text3:#4a5568;
+    --accent:#ff6b6b;--accent2:#ee5a5a;--green:#3fb950;--green-dim:rgba(63,185,80,0.15);
+    --yellow:#d29922;--yellow-dim:rgba(210,153,34,0.15);--red:#f85149;--red-dim:rgba(248,81,73,0.15);
+    --teal:#39c5bb;--teal-dim:rgba(57,197,187,0.12);
+    --shadow:0 2px 12px rgba(0,0,0,0.3);--shadow-md:0 4px 20px rgba(0,0,0,0.4);
+  }
+  body.dark .app-header{background:rgba(13,17,23,0.92)}
+  body.dark .bottom-nav{background:rgba(22,27,34,0.97)}
 </style>
 </head>
 <body>
@@ -259,7 +271,8 @@
 <div id="app">
   <div class="app-header">
     <div class="header-brand">🕊 Yến Phụng</div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="toggleDarkMode()" id="theme-btn" style="background:none;border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:14px;cursor:pointer;line-height:1">🌙</button>
       <div class="header-role" id="role-badge">Nhân viên</div>
       <button class="logout-btn" onclick="logout()">Thoát</button>
     </div>
@@ -1698,6 +1711,23 @@ function fmtM(n){
   if(n>=1000) return (n/1000).toFixed(0)+'k';
   return n.toLocaleString('vi-VN')+'đ';
 }
+// ===== DARK MODE =====
+function toggleDarkMode(){
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('theme', isDark?'dark':'light');
+  document.getElementById('theme-btn').textContent = isDark?'☀️':'🌙';
+}
+function initTheme(){
+  const saved = localStorage.getItem('theme')||'light';
+  if(saved==='dark'){
+    document.body.classList.add('dark');
+    const btn=document.getElementById('theme-btn');
+    if(btn) btn.textContent='☀️';
+  }
+}
+// Khởi tạo theme ngay khi load
+initTheme();
+
 document.addEventListener('keydown',e=>{
   if(document.getElementById('login-screen').style.display!=='none'){
     if(e.key>='0'&&e.key<='9') pinPress(e.key);
