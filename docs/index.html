@@ -459,6 +459,24 @@
       <div class="form-group"><label class="form-label">Màu con trống</label><input class="form-input" id="p-male" placeholder="VD: Xanh lam"></div>
       <div class="form-group"><label class="form-label">Màu con mái</label><input class="form-input" id="p-female" placeholder="VD: Vàng chanh"></div>
     </div>
+    <!-- ẢNH CON TRỐNG VÀ CON MÁI -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">📷 Ảnh con trống</label>
+        <div id="preview-male" style="width:100%;height:100px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:6px" onclick="document.getElementById('upload-male').click()">
+          <span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh</span>
+        </div>
+        <input type="file" id="upload-male" accept="image/*" style="display:none" onchange="previewImg('male',this)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">📷 Ảnh con mái</label>
+        <div id="preview-female" style="width:100%;height:100px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:6px" onclick="document.getElementById('upload-female').click()">
+          <span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh</span>
+        </div>
+        <input type="file" id="upload-female" accept="image/*" style="display:none" onchange="previewImg('female',this)">
+      </div>
+    </div>
+    <div id="upload-pair-status" style="font-size:12px;color:var(--text2);text-align:center;min-height:18px"></div>
     <div class="form-group"><label class="form-label">Đột biến màu</label><input class="form-input" id="p-mutation" placeholder="VD: Opaline, Lutino..."></div>
     <div class="form-group"><label class="form-label">Ngày ghép cặp</label><input class="form-input" id="p-date" type="date"></div>
     <div class="form-group"><label class="form-label">Ghi chú</label><textarea class="form-textarea" id="p-note" placeholder="Ghi chú thêm..."></textarea></div>
@@ -540,6 +558,14 @@
     <div class="form-group">
       <label class="form-label">📝 Ghi chú thêm</label>
       <textarea class="form-textarea" id="daily-note" placeholder="Quan sát đặc biệt hôm nay..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📷 Ảnh hôm nay</label>
+      <div id="preview-daily" style="width:100%;height:120px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:6px" onclick="document.getElementById('upload-daily').click()">
+        <span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>
+      </div>
+      <input type="file" id="upload-daily" accept="image/*" style="display:none" onchange="previewImg('daily',this)">
+      <div id="upload-daily-status" style="font-size:12px;color:var(--text2);text-align:center;min-height:18px"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <button class="btn btn-secondary" onclick="closeDailyLog()">Huỷ</button>
@@ -1172,12 +1198,28 @@ function openAddPair(){
   document.getElementById('modal-pair-title').textContent='Thêm cặp chim';
   ['p-code','p-male','p-female','p-mutation','p-note'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
+  // Reset ảnh
+  imgMaleUrl=''; imgFemaleUrl='';
+  document.getElementById('preview-male').innerHTML='<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh</span>';
+  document.getElementById('preview-female').innerHTML='<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh</span>';
+  document.getElementById('upload-pair-status').textContent='';
+  document.getElementById('upload-male').value='';
+  document.getElementById('upload-female').value='';
   openModal('modal-pair');
 }
 
 async function savePair(){
   const code=document.getElementById('p-code').value.trim();
   if(!code){showToast('Nhập mã cặp!','error');return;}
+  // Upload ảnh nếu có chọn file mới
+  const maleFile=document.getElementById('upload-male').files[0];
+  const femaleFile=document.getElementById('upload-female').files[0];
+  const statusEl=document.getElementById('upload-pair-status');
+  if(maleFile||femaleFile){
+    statusEl.textContent='⏳ Đang upload ảnh...';
+    if(maleFile) imgMaleUrl = await uploadToCloudinary(maleFile,'upload-pair-status');
+    if(femaleFile) imgFemaleUrl = await uploadToCloudinary(femaleFile,'upload-pair-status');
+  }
   const data={
     code,
     male:document.getElementById('p-male').value.trim(),
@@ -1186,6 +1228,8 @@ async function savePair(){
     pair_date:document.getElementById('p-date').value,
     status: editingPairId ? (CACHE.pairs.find(x=>x.id===editingPairId)?.status||'active') : 'active',
     note:document.getElementById('p-note').value.trim(),
+    img_male: imgMaleUrl||null,
+    img_female: imgFemaleUrl||null,
   };
   setSyncStatus('syncing','Đang lưu...');
   try {
@@ -1213,6 +1257,17 @@ function openPairDetail(id){
   document.getElementById('pd-title').textContent='Cặp '+p.code;
   document.getElementById('pd-sub').textContent=SL[p.status];
   document.getElementById('pd-body').innerHTML=`
+    ${(p.img_male||p.img_female)?`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      ${p.img_male?`<div style="text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Con trống</div>
+        <img src="${p.img_male}" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-sm);cursor:pointer" onclick="window.open('${p.img_male}')">
+      </div>`:'<div></div>'}
+      ${p.img_female?`<div style="text-align:center">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Con mái</div>
+        <img src="${p.img_female}" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-sm);cursor:pointer" onclick="window.open('${p.img_female}')">
+      </div>`:'<div></div>'}
+    </div>`:''}
     <div class="report-row"><span class="lbl">Con trống</span><span class="val">${p.male||'Chưa ghi'}</span></div>
     <div class="report-row"><span class="lbl">Con mái</span><span class="val">${p.female||'Chưa ghi'}</span></div>
     <div class="report-row"><span class="lbl">Đột biến</span><span class="val">${p.mutation||'Chưa xác định'}</span></div>
@@ -1238,12 +1293,16 @@ function openDailyLog(){
   const p=CACHE.pairs.find(x=>x.id===currentPairId);
   document.getElementById('daily-sub').textContent='Cặp '+(p?.code||'');
   document.getElementById('daily-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('daily-eggs').value=p?.eggs||0;
-  document.getElementById('daily-chicks').value=p?.chicks||0;
+  document.getElementById('daily-eggs').value='0';
+  document.getElementById('daily-chicks').value='0';
   document.getElementById('daily-bad-eggs').value='0';
   document.getElementById('daily-parents').value='bình thường';
   document.getElementById('daily-nest').value='bình thường';
   document.getElementById('daily-note').value='';
+  imgDailyUrl='';
+  document.getElementById('preview-daily').innerHTML='<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>';
+  document.getElementById('upload-daily').value='';
+  document.getElementById('upload-daily-status').textContent='';
   closeModal('modal-pair-detail');
   openModal('modal-daily');
 }
@@ -1261,8 +1320,20 @@ async function saveDailyLog(){
   const parents=document.getElementById('daily-parents').value;
   const nest=document.getElementById('daily-nest').value;
   const note=document.getElementById('daily-note').value.trim();
-  const payload=JSON.stringify({eggs,chicks,badEggs,parents,nest,note});
+  const dailyFile=document.getElementById('upload-daily').files[0];
+  if(dailyFile){
+    imgDailyUrl = await uploadToCloudinary(dailyFile,'upload-daily-status');
+  }
+  const payload=JSON.stringify({eggs,chicks,badEggs,parents,nest,note,img:imgDailyUrl||''});
   const data={id:'dl'+Date.now(), pair_id:currentPairId, type:'__daily__', event_date:date, note:payload};
+  try {
+    await sb.from('events').insert(data);
+    closeModal('modal-daily');
+    showToast('Đã lưu nhật ký','success');
+    await loadAll();
+    openPairDetail(currentPairId);
+  } catch { showToast('Lỗi lưu','error'); }
+}
   try {
     await sb.from('events').insert(data);
     closeModal('modal-daily');
@@ -1312,6 +1383,7 @@ function renderDailyLog(){
       <div style="font-size:12px;color:var(--text2);margin-bottom:3px">👫 Bố mẹ: <span style="color:var(--text)">${d.parents}</span></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:${d.note?'6px':'0'}">🪹 Tổ: <span style="color:var(--text)">${d.nest}</span></div>
       ${d.note?`<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border);padding-top:6px;margin-top:4px">📝 ${d.note}</div>`:''}
+      ${d.img?`<img src="${d.img}" style="width:100%;border-radius:6px;margin-top:8px;cursor:pointer;max-height:200px;object-fit:cover" onclick="window.open('${d.img}')">`:''}
     </div>`;
   }).join('');
 }
@@ -1337,6 +1409,15 @@ function editPair(){
   document.getElementById('p-mutation').value=p.mutation||'';
   document.getElementById('p-date').value=p.pair_date||'';
   document.getElementById('p-note').value=p.note||'';
+  // Load ảnh cũ vào preview
+  imgMaleUrl=p.img_male||''; imgFemaleUrl=p.img_female||'';
+  document.getElementById('preview-male').innerHTML=p.img_male
+    ?`<img src="${p.img_male}" style="width:100%;height:100%;object-fit:cover">`
+    :'<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh</span>';
+  document.getElementById('preview-female').innerHTML=p.img_female
+    ?`<img src="${p.img_female}" style="width:100%;height:100%;object-fit:cover">`
+    :'<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh</span>';
+  document.getElementById('upload-pair-status').textContent='';
   openModal('modal-pair');
 }
 
@@ -1817,7 +1898,41 @@ function fmtM(n){
   if(n>=1000) return (n/1000).toFixed(0)+'k';
   return n.toLocaleString('vi-VN')+'đ';
 }
-// ===== DARK MODE =====
+// ===== CLOUDINARY =====
+const CLD_CLOUD = 'deiy5zahh';
+const CLD_PRESET = 'bird_farm';
+
+// State lưu URL ảnh đã upload
+let imgMaleUrl = '', imgFemaleUrl = '', imgDailyUrl = '';
+
+function previewImg(type, input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const previewId = type==='daily' ? 'preview-daily' : `preview-${type}`;
+    const el = document.getElementById(previewId);
+    el.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadToCloudinary(file, statusElId){
+  const statusEl = document.getElementById(statusElId);
+  if(statusEl) statusEl.textContent = '⏳ Đang upload...';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLD_PRESET);
+  try {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLD_CLOUD}/image/upload`, {method:'POST', body:fd});
+    const data = await res.json();
+    if(statusEl) statusEl.textContent = '✅ Upload xong';
+    // Trả về URL đã resize nhỏ để hiển thị nhanh
+    return data.secure_url.replace('/upload/', '/upload/w_600,q_auto,f_auto/');
+  } catch {
+    if(statusEl) statusEl.textContent = '❌ Upload thất bại';
+    return '';
+  }
+}
 function toggleDarkMode(){
   const isDark = document.body.classList.toggle('dark');
   localStorage.setItem('theme', isDark?'dark':'light');
