@@ -294,7 +294,7 @@
       <div class="stat-card"><div class="stat-label">Cặp bố mẹ</div><div class="stat-value" id="s-pairs">—</div><div class="stat-sub">cặp sinh sản</div></div>
       <div class="stat-card"><div class="stat-label">Chim non</div><div class="stat-value" style="color:var(--teal)" id="s-chicks">—</div><div class="stat-sub">đang nuôi</div></div>
       <div class="stat-card"><div class="stat-label">Đang ấp</div><div class="stat-value" style="color:var(--yellow)" id="s-eggs">—</div><div class="stat-sub">quả trứng</div></div>
-      <div class="stat-card"><div class="stat-label">Chờ xuất</div><div class="stat-value" style="color:var(--green)" id="s-ready">—</div><div class="stat-sub">con</div></div>
+      <div class="stat-card"><div class="stat-label">Lồng phóng</div><div class="stat-value" style="color:var(--green)" id="s-ready">—</div><div class="stat-sub">con</div></div>
     </div>
     <div class="card" style="cursor:pointer" onclick="showPage('checklist')">
       <div class="card-header">
@@ -343,8 +343,16 @@
 
   <!-- BIRDS -->
   <div id="page-birds" class="page">
+    <!-- LỒNG PHÓNG -->
     <div class="section-header">
-      <div class="section-title">Đàn chim (<span id="pair-count">0</span>)</div>
+      <div class="section-title">Lồng phóng (<span id="flight-total">0</span> con)</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddFlightCage()">+ Thêm lồng</button>
+    </div>
+    <div id="flight-cages-list" style="margin-bottom:16px"></div>
+
+    <!-- LỒNG SINH SẢN -->
+    <div class="section-header" style="margin-top:8px">
+      <div class="section-title">Lồng sinh sản (<span id="pair-count">0</span>)</div>
       <button class="btn btn-primary btn-sm" onclick="openAddPair()">+ Thêm</button>
     </div>
     <div class="filter-tabs">
@@ -446,6 +454,54 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <button class="btn btn-secondary" onclick="closeModal('modal-tx')">Huỷ</button>
       <button class="btn btn-primary" onclick="saveTx()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL THÊM LỒNG PHÓNG -->
+<div class="modal-overlay" id="modal-flight-cage">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="flight-cage-title">Thêm lồng phóng</div>
+    <div class="form-group"><label class="form-label">Tên lồng</label><input class="form-input" id="fc-name" placeholder="VD: Phóng 1, Phóng 2..."></div>
+    <div class="form-group"><label class="form-label">Ghi chú</label><input class="form-input" id="fc-note" placeholder="Tuỳ chọn..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-flight-cage')">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveFlightCage()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NHẬP CHIM VÀO LỒNG PHÓNG -->
+<div class="modal-overlay" id="modal-flight-bird">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nhập chim mới</div>
+    <div class="modal-sub" id="fb-sub"></div>
+    <div class="form-group"><label class="form-label">Nguồn gốc</label><input class="form-input" id="fb-source" placeholder="VD: Từ cặp C01, Mua ngoài..."></div>
+    <div class="form-group"><label class="form-label">Giới tính</label>
+      <select class="form-select" id="fb-gender">
+        <option value="chưa rõ">Chưa rõ</option>
+        <option value="trống">Trống</option>
+        <option value="mái">Mái</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Ngày vào lồng</label><input class="form-input" id="fb-date" type="date"></div>
+      <div class="form-group"><label class="form-label">Số lượng</label><input class="form-input" id="fb-qty" type="number" inputmode="numeric" placeholder="1" min="1"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">📷 Ảnh</label>
+      <div id="preview-fb" style="width:100%;height:100px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:6px" onclick="document.getElementById('upload-fb').click()">
+        <span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>
+      </div>
+      <input type="file" id="upload-fb" accept="image/*" style="display:none" onchange="previewImg('fb',this)">
+      <div id="upload-fb-status" style="font-size:12px;color:var(--text2);text-align:center;min-height:18px"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Ghi chú</label><input class="form-input" id="fb-note" placeholder="Tuỳ chọn..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-flight-bird')">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveFlightBird()">Lưu</button>
     </div>
   </div>
 </div>
@@ -713,7 +769,7 @@ let txType = 'income', txFilter = 'all', birdFilter = 'all';
 let finViewMonth = new Date().getMonth(), finViewYear = new Date().getFullYear();
 
 // Local cache
-let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{}, taskConfig:{custom:[], deleted:[], edited:{}} };
+let CACHE = { pairs:[], transactions:[], inventory:[], events:[], checklist:{}, taskConfig:{custom:[], deleted:[], edited:{}}, flightCages:[], flightBirds:[] };
 
 // ===== CHECKLIST TASKS =====
 const DEFAULT_TASKS = [
@@ -853,12 +909,14 @@ function setSyncStatus(status, msg) {
 async function loadAll() {
   setSyncStatus('syncing','Đang tải dữ liệu...');
   try {
-    const [p,t,i,e,c] = await Promise.all([
+    const [p,t,i,e,c,fc,fb] = await Promise.all([
       sb.from('pairs').select('*').order('code'),
       sb.from('transactions').select('*').order('tx_date',{ascending:false}),
       sb.from('inventory').select('*').order('name'),
       sb.from('events').select('*').order('event_date',{ascending:false}),
       sb.from('checklist').select('*'),
+      sb.from('flight_cages').select('*').order('name'),
+      sb.from('flight_birds').select('*').order('date_in',{ascending:false}),
     ]);
     if (p.error||t.error||i.error||e.error||c.error) throw new Error('Load error');
 
@@ -866,6 +924,8 @@ async function loadAll() {
     CACHE.transactions = t.data || [];
     CACHE.inventory = i.data || [];
     CACHE.events = e.data || [];
+    CACHE.flightCages = fc.data || [];
+    CACHE.flightBirds = fb.data || [];
 
     // Build checklist map, tách task config ra riêng
     CACHE.checklist = {};
@@ -953,6 +1013,8 @@ function setupRealtime() {
     .on('postgres_changes',{event:'*',schema:'public',table:'inventory'}, () => loadAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'events'}, () => loadAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'checklist'}, () => loadAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'flight_cages'}, () => loadAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'flight_birds'}, () => loadAll())
     .subscribe(status => {
       if (status==='SUBSCRIBED') setSyncStatus('ok','Realtime bật');
       if (status==='CLOSED'||status==='CHANNEL_ERROR') setSyncStatus('err','Mất kết nối realtime');
@@ -1036,15 +1098,29 @@ function showPage(page){
 function refreshCurrentPage(){
   const renders={home:renderHome,checklist:renderChecklist,birds:renderBirds,finance:renderFinance,inventory:renderInventory,report:renderReport};
   renders[currentPage]?.();
+  if(currentPage==='birds') renderFlightCages();
 }
 
 // ===== HOME =====
 function renderHome(){
   const pairs=CACHE.pairs;
   document.getElementById('s-pairs').textContent=pairs.length;
-  document.getElementById('s-chicks').textContent=pairs.reduce((s,p)=>s+(p.chicks||0),0);
-  document.getElementById('s-eggs').textContent=pairs.reduce((s,p)=>s+(p.eggs||0),0);
-  document.getElementById('s-ready').textContent=pairs.filter(p=>p.status==='chick').reduce((s,p)=>s+(p.chicks||0),0);
+
+  // Lấy chim non và trứng từ nhật ký gần nhất của mỗi cặp
+  function getLatestVal(pairId, field){
+    const logs=CACHE.events.filter(e=>e.pair_id===pairId&&e.type==='__daily__')
+      .sort((a,b)=>b.event_date.localeCompare(a.event_date));
+    if(logs.length===0) return 0;
+    try{ return Number(JSON.parse(logs[0].note)[field])||0; }catch{ return 0; }
+  }
+  const totalChicks=pairs.reduce((s,p)=>s+getLatestVal(p.id,'chicks'),0);
+  const totalEggs=pairs.reduce((s,p)=>s+getLatestVal(p.id,'eggs'),0);
+  document.getElementById('s-chicks').textContent=totalChicks;
+  document.getElementById('s-eggs').textContent=totalEggs;
+
+  // Tổng chim trong lồng phóng
+  const totalFlight=CACHE.flightBirds.reduce((s,b)=>s+(b.qty||0),0);
+  document.getElementById('s-ready').textContent=totalFlight;
 
   const today=new Date().toISOString().split('T')[0];
   const checked=TASKS.filter(t=>CACHE.checklist[today]?.[t.id]).length;
@@ -1819,6 +1895,123 @@ async function saveInv(){
     else { await sb.from('inventory').insert({id:'inv'+Date.now(),...data}); }
     closeModal('modal-inv'); showToast('Đã lưu','success'); await loadAll();
   } catch { showToast('Lỗi lưu','error'); }
+}
+
+// ===== FLIGHT CAGES =====
+let currentFlightCageId = null;
+
+function renderFlightCages(){
+  const total = CACHE.flightBirds.reduce((s,b)=>s+(b.qty||0),0);
+  const el = document.getElementById('flight-total');
+  if(el) el.textContent = total;
+  const listEl = document.getElementById('flight-cages-list');
+  if(!listEl) return;
+  if(CACHE.flightCages.length===0){
+    listEl.innerHTML=`<div class="empty-state" style="padding:16px"><div class="empty-icon">🐦</div>Chưa có lồng phóng</div>`;
+    return;
+  }
+  listEl.innerHTML = CACHE.flightCages.map(cage=>{
+    const birds = CACHE.flightBirds.filter(b=>b.cage_id===cage.id);
+    const totalCage = birds.reduce((s,b)=>s+(b.qty||0),0);
+    const trong = birds.filter(b=>b.gender==='trống').reduce((s,b)=>s+(b.qty||0),0);
+    const mai = birds.filter(b=>b.gender==='mái').reduce((s,b)=>s+(b.qty||0),0);
+    const chuaro = birds.filter(b=>b.gender==='chưa rõ').reduce((s,b)=>s+(b.qty||0),0);
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:15px;font-weight:700">${cage.name}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:22px;font-weight:700;color:var(--accent)">${totalCage}</span>
+          <span style="font-size:12px;color:var(--text2)">con</span>
+          <button onclick="openAddFlightBird('${cage.id}')" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600">+ Nhập</button>
+          <button onclick="deleteFlightCage('${cage.id}')" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0">×</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:12px;color:var(--text2);margin-bottom:8px">
+        ${trong>0?`<span>Trống: <strong style="color:var(--text)">${trong}</strong></span>`:''}
+        ${mai>0?`<span>Mái: <strong style="color:var(--text)">${mai}</strong></span>`:''}
+        ${chuaro>0?`<span>Chưa rõ: <strong style="color:var(--text)">${chuaro}</strong></span>`:''}
+      </div>
+      ${birds.map(b=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          ${b.img_url?`<img src="${b.img_url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" onclick="window.open('${b.img_url}')">`:'<div style="width:40px;height:40px;background:var(--surface2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🐦</div>'}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500">${b.qty} con · ${b.gender}</div>
+            <div style="font-size:11px;color:var(--text2)">${b.source||'—'} · ${b.date_in||'—'}</div>
+            ${b.note?`<div style="font-size:11px;color:var(--text3)">${b.note}</div>`:''}
+          </div>
+          <button onclick="deleteFlightBird('${b.id}',event)" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0;flex-shrink:0">×</button>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function openAddFlightCage(){
+  document.getElementById('fc-name').value='';
+  document.getElementById('fc-note').value='';
+  openModal('modal-flight-cage');
+}
+
+async function saveFlightCage(){
+  const name=document.getElementById('fc-name').value.trim();
+  if(!name){showToast('Nhập tên lồng!','error');return;}
+  try{
+    await sb.from('flight_cages').insert({id:'fc'+Date.now(),name,note:document.getElementById('fc-note').value.trim()});
+    closeModal('modal-flight-cage');
+    showToast('Đã thêm lồng','success');
+    await loadAll();
+  }catch{showToast('Lỗi lưu','error');}
+}
+
+async function deleteFlightCage(id){
+  if(!confirm('Xoá lồng này và toàn bộ chim trong lồng?')) return;
+  try{
+    await sb.from('flight_cages').delete().eq('id',id);
+    showToast('Đã xoá','success'); await loadAll();
+  }catch{showToast('Lỗi xoá','error');}
+}
+
+function openAddFlightBird(cageId){
+  currentFlightCageId=cageId;
+  const cage=CACHE.flightCages.find(c=>c.id===cageId);
+  document.getElementById('fb-sub').textContent=cage?.name||'';
+  document.getElementById('fb-source').value='';
+  document.getElementById('fb-gender').value='chưa rõ';
+  document.getElementById('fb-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('fb-qty').value='1';
+  document.getElementById('fb-note').value='';
+  document.getElementById('preview-fb').innerHTML='<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>';
+  document.getElementById('upload-fb').value='';
+  document.getElementById('upload-fb-status').textContent='';
+  openModal('modal-flight-bird');
+}
+
+async function saveFlightBird(){
+  const qty=parseInt(document.getElementById('fb-qty').value)||1;
+  const fbFile=document.getElementById('upload-fb').files[0];
+  let imgUrl='';
+  if(fbFile) imgUrl=await uploadToCloudinary(fbFile,'upload-fb-status');
+  const data={
+    id:'fb'+Date.now(), cage_id:currentFlightCageId,
+    source:document.getElementById('fb-source').value.trim(),
+    gender:document.getElementById('fb-gender').value,
+    date_in:document.getElementById('fb-date').value,
+    qty, img_url:imgUrl||null,
+    note:document.getElementById('fb-note').value.trim(),
+  };
+  try{
+    await sb.from('flight_birds').insert(data);
+    closeModal('modal-flight-bird');
+    showToast('Đã nhập chim','success'); await loadAll();
+  }catch{showToast('Lỗi lưu','error');}
+}
+
+async function deleteFlightBird(id,e){
+  e.stopPropagation();
+  if(!confirm('Xoá bản ghi này?')) return;
+  try{
+    await sb.from('flight_birds').delete().eq('id',id);
+    showToast('Đã xoá','success'); await loadAll();
+  }catch{showToast('Lỗi xoá','error');}
 }
 
 // ===== REPORT =====
