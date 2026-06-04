@@ -1334,14 +1334,6 @@ async function saveDailyLog(){
     openPairDetail(currentPairId);
   } catch { showToast('Lỗi lưu','error'); }
 }
-  try {
-    await sb.from('events').insert(data);
-    closeModal('modal-daily');
-    showToast('Đã lưu nhật ký','success');
-    await loadAll();
-    openPairDetail(currentPairId);
-  } catch { showToast('Lỗi lưu','error'); }
-}
 
 function renderDailyLog(){
   const container=document.getElementById('daily-log-list');
