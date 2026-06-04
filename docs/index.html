@@ -48,7 +48,7 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
   /* APP */
-  #app{display:none;flex-direction:column;min-height:100vh;padding-bottom:80px}
+  #app{display:none;flex-direction:column;min-height:100vh;padding-bottom:100px}
   .app-header{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 8px rgba(0,0,0,0.06)}
   .header-brand{font-family:'Playfair Display',serif;font-size:18px;color:var(--accent)}
   .header-role{font-size:11px;background:var(--surface2);border:1.5px solid var(--border);border-radius:20px;padding:4px 10px;color:var(--text2)}
@@ -56,7 +56,8 @@
   .logout-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:4px 8px;font-family:inherit}
 
   /* BOTTOM NAV */
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;padding:8px 0 env(safe-area-inset-bottom,8px);box-shadow:0 -2px 12px rgba(0,0,0,0.06)}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,0.97);backdrop-filter:blur(12px);border-top:1px solid var(--border);display:flex;padding:10px 0 max(env(safe-area-inset-bottom,16px),16px);box-shadow:0 -2px 12px rgba(0,0,0,0.06)}
+  body.dark .bottom-nav{background:rgba(22,27,34,0.97)}
   .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 4px;cursor:pointer;color:var(--text3);transition:color .2s;font-size:10px;border:none;background:none;font-family:inherit}
   .nav-item.active{color:var(--accent)}
   .nav-icon{font-size:20px;line-height:1}
@@ -391,17 +392,18 @@
     <div class="card" style="padding:0 16px"><div id="inv-list"></div></div>
   </div>
 
-  <!-- REPORT -->
+  <!-- CÀI ĐẶT -->
   <div id="page-report" class="page">
-    <div class="card"><div class="card-header"><div class="card-title">Tổng quan trại</div></div><div id="rpt-overview"></div></div>
-    <div class="card"><div class="card-header"><div class="card-title">Tài chính 3 tháng</div></div><div id="rpt-finance"></div></div>
     <div id="admin-settings" class="hidden">
       <div class="card">
-        <div class="card-header"><div class="card-title">Đổi mã PIN</div></div>
+        <div class="card-header"><div class="card-title">🔐 Đổi mã PIN</div></div>
         <div class="form-group"><label class="form-label">PIN nhân viên (4 số)</label><input class="form-input" id="pin-staff" type="password" maxlength="4" inputmode="numeric" placeholder="PIN mới cho Hiếu"></div>
         <div class="form-group"><label class="form-label">PIN quản trị (6 số)</label><input class="form-input" id="pin-admin" type="password" maxlength="6" inputmode="numeric" placeholder="PIN mới cho Henry"></div>
         <button class="btn btn-primary" onclick="savePins()">Cập nhật PIN</button>
       </div>
+    </div>
+    <div id="staff-settings-msg" class="hidden">
+      <div class="empty-state"><div class="empty-icon">🔐</div><div>Cài đặt chỉ dành cho Admin</div></div>
     </div>
   </div>
 
@@ -411,7 +413,7 @@
     <button class="nav-item" onclick="showPage('birds')" id="nav-birds"><span class="nav-icon">🕊</span><span>Đàn chim</span></button>
     <button class="nav-item" onclick="showPage('finance')" id="nav-finance"><span class="nav-icon">💰</span><span>Tài chính</span></button>
     <button class="nav-item" onclick="showPage('inventory')" id="nav-inventory"><span class="nav-icon">📦</span><span>Kho</span></button>
-    <button class="nav-item" onclick="showPage('report')" id="nav-report"><span class="nav-icon">📊</span><span>Báo cáo</span></button>
+    <button class="nav-item" onclick="showPage('report')" id="nav-report"><span class="nav-icon">⚙️</span><span>Cài đặt</span></button>
   </nav>
 </div>
 
@@ -452,28 +454,13 @@
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title" id="modal-pair-title">Thêm cặp chim</div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Mã cặp</label><input class="form-input" id="p-code" placeholder="C13"></div>
-      <div class="form-group"><label class="form-label">Trạng thái</label>
-        <select class="form-select" id="p-status">
-          <option value="active">Đang sinh sản</option><option value="egg">Ấp trứng</option>
-          <option value="chick">Có chim non</option><option value="rest">Nghỉ</option>
-        </select>
-      </div>
-    </div>
+    <div class="form-group"><label class="form-label">Mã cặp</label><input class="form-input" id="p-code" placeholder="C13"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Màu con trống</label><input class="form-input" id="p-male" placeholder="VD: Xanh lam"></div>
       <div class="form-group"><label class="form-label">Màu con mái</label><input class="form-input" id="p-female" placeholder="VD: Vàng chanh"></div>
     </div>
     <div class="form-group"><label class="form-label">Đột biến màu</label><input class="form-input" id="p-mutation" placeholder="VD: Opaline, Lutino..."></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Ngày ghép cặp</label><input class="form-input" id="p-date" type="date"></div>
-      <div class="form-group"><label class="form-label">Đẻ gần nhất</label><input class="form-input" id="p-lastlay" type="date"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Số trứng</label><input class="form-input" id="p-eggs" type="number" inputmode="numeric" placeholder="0"></div>
-      <div class="form-group"><label class="form-label">Số chim non</label><input class="form-input" id="p-chicks" type="number" inputmode="numeric" placeholder="0"></div>
-    </div>
+    <div class="form-group"><label class="form-label">Ngày ghép cặp</label><input class="form-input" id="p-date" type="date"></div>
     <div class="form-group"><label class="form-label">Ghi chú</label><textarea class="form-textarea" id="p-note" placeholder="Ghi chú thêm..."></textarea></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <button class="btn btn-secondary" onclick="closeModal('modal-pair')">Huỷ</button>
@@ -618,7 +605,42 @@
   </div>
 </div>
 
-<!-- MODAL TASK -->
+<!-- MODAL LỊCH SỬ KHO -->
+<div class="modal-overlay" id="modal-inv-history">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="inv-history-title">Lịch sử kiểm kho</div>
+    <div style="margin-bottom:14px">
+      <div id="inv-current-stock" style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px"></div>
+      <button class="btn btn-primary btn-sm" onclick="openStockCheck()" style="width:auto">+ Kiểm kho hôm nay</button>
+    </div>
+    <div id="inv-history-list"></div>
+    <div style="margin-top:14px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-inv-history')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL KIỂM KHO -->
+<div class="modal-overlay" id="modal-stockcheck">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📦 Kiểm kho</div>
+    <div class="modal-sub" id="stockcheck-sub"></div>
+    <div class="form-group"><label class="form-label">Ngày kiểm</label><input class="form-input" id="sc-date" type="date"></div>
+    <div class="form-group"><label class="form-label">Số lượng thực tế</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input class="form-input" id="sc-qty" type="number" inputmode="decimal" placeholder="0">
+        <span id="sc-unit" style="color:var(--text2);font-size:14px;white-space:nowrap"></span>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Ghi chú</label><input class="form-input" id="sc-note" placeholder="VD: Nhập thêm 5kg, tiêu hao bình thường..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" onclick="closeStockCheck()">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveStockCheck()">Lưu</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="modal-task">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -948,6 +970,8 @@ function loginAs(role){
   badge.textContent=role==='admin'?'👑 Henry':'👤 Hiếu';
   badge.className='header-role'+(role==='admin'?' admin':'');
   document.getElementById('admin-settings').classList.toggle('hidden',role!=='admin');
+  const staffMsg=document.getElementById('staff-settings-msg');
+  if(staffMsg) staffMsg.classList.toggle('hidden',role==='admin');
   document.getElementById('cl-admin-bar').classList.toggle('hidden',role!=='admin');
   initApp();
 }
@@ -1147,9 +1171,7 @@ function openAddPair(){
   editingPairId=null;
   document.getElementById('modal-pair-title').textContent='Thêm cặp chim';
   ['p-code','p-male','p-female','p-mutation','p-note'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('p-eggs').value='0'; document.getElementById('p-chicks').value='0';
   document.getElementById('p-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('p-lastlay').value=''; document.getElementById('p-status').value='active';
   openModal('modal-pair');
 }
 
@@ -1157,14 +1179,12 @@ async function savePair(){
   const code=document.getElementById('p-code').value.trim();
   if(!code){showToast('Nhập mã cặp!','error');return;}
   const data={
-    code, male:document.getElementById('p-male').value.trim(),
+    code,
+    male:document.getElementById('p-male').value.trim(),
     female:document.getElementById('p-female').value.trim(),
     mutation:document.getElementById('p-mutation').value.trim(),
     pair_date:document.getElementById('p-date').value,
-    lastlay:document.getElementById('p-lastlay').value,
-    status:document.getElementById('p-status').value,
-    eggs:parseInt(document.getElementById('p-eggs').value)||0,
-    chicks:parseInt(document.getElementById('p-chicks').value)||0,
+    status: editingPairId ? (CACHE.pairs.find(x=>x.id===editingPairId)?.status||'active') : 'active',
     note:document.getElementById('p-note').value.trim(),
   };
   setSyncStatus('syncing','Đang lưu...');
@@ -1316,10 +1336,6 @@ function editPair(){
   document.getElementById('p-female').value=p.female||'';
   document.getElementById('p-mutation').value=p.mutation||'';
   document.getElementById('p-date').value=p.pair_date||'';
-  document.getElementById('p-lastlay').value=p.lastlay||'';
-  document.getElementById('p-status').value=p.status;
-  document.getElementById('p-eggs').value=p.eggs||0;
-  document.getElementById('p-chicks').value=p.chicks||0;
   document.getElementById('p-note').value=p.note||'';
   openModal('modal-pair');
 }
@@ -1541,7 +1557,6 @@ async function deleteTx(id,e){
 
 // ===== INVENTORY =====
 function calcRemaining(i){
-  // Tính tồn kho còn lại dựa trên ngày kiểm kê và tiêu hao mỗi ngày
   if(!i.stock_date || !i.initial_qty || !i.daily_use) return null;
   const days = Math.floor((new Date() - new Date(i.stock_date)) / 86400000);
   return Math.max(0, parseFloat(i.initial_qty) - days * parseFloat(i.daily_use));
@@ -1555,13 +1570,12 @@ function renderInventory(){
       const displayQty = remaining !== null ? Math.round(remaining*10)/10 : i.qty;
       const low = i.threshold>0 && displayQty<=i.threshold;
       const warn = !low && i.threshold>0 && displayQty<=i.threshold*1.5;
-      // Tính ngày còn lại đến hết
       let daysLeft = null;
       if(i.daily_use>0 && remaining!==null) daysLeft = Math.floor(remaining/parseFloat(i.daily_use));
       return `
         <div class="inv-item">
           <div class="inv-left">
-            <div class="inv-name">${i.name}</div>
+            <div class="inv-name" style="cursor:pointer;color:var(--text)" onclick="openInvHistory('${i.id}')">${i.name} <span style="font-size:11px;color:var(--accent)">📋 lịch sử</span></div>
             <div class="inv-cat">${i.category}</div>
             ${i.stock_date?`<div style="font-size:11px;color:var(--text3);margin-top:2px">Kiểm kê: ${i.stock_date} · Ban đầu: ${i.initial_qty} ${i.unit}</div>`:''}
             ${i.daily_use>0?`<div style="font-size:11px;color:var(--text3)">Tiêu hao: ${i.daily_use} ${i.unit}/ngày${daysLeft!==null?` · Còn ~${daysLeft} ngày`:''}</div>`:''}
@@ -1580,6 +1594,98 @@ function renderInventory(){
           </div>
         </div>`;
     }).join('');
+}
+
+// ===== KIỂM KHO =====
+let currentInvId = null;
+
+function openInvHistory(id){
+  currentInvId = id;
+  const i = CACHE.inventory.find(x=>x.id===id); if(!i) return;
+  document.getElementById('inv-history-title').textContent = i.name + ' — Lịch sử';
+  // Hiện tồn kho hiện tại
+  const remaining = calcRemaining(i);
+  const displayQty = remaining !== null ? Math.round(remaining*10)/10 : i.qty;
+  document.getElementById('inv-current-stock').innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tồn kho hiện tại</div>
+    <div style="font-size:28px;font-weight:700;color:${i.threshold>0&&displayQty<=i.threshold?'var(--red)':'var(--accent)'}">${displayQty} <span style="font-size:14px;font-weight:400;color:var(--text2)">${i.unit}</span></div>
+    ${i.daily_use>0&&remaining!==null?`<div style="font-size:12px;color:var(--text3);margin-top:4px">Tiêu hao ~${i.daily_use} ${i.unit}/ngày</div>`:''}`;
+  renderInvHistory(id);
+  openModal('modal-inv-history');
+}
+
+function renderInvHistory(id){
+  const logs = CACHE.events.filter(e=>e.pair_id===id&&e.type==='__stockcheck__')
+    .sort((a,b)=>b.event_date.localeCompare(a.event_date))
+    .slice(0,30);
+  const container = document.getElementById('inv-history-list');
+  if(logs.length===0){
+    container.innerHTML='<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">Chưa có lần kiểm kho nào</div>';
+    return;
+  }
+  container.innerHTML = logs.map(ev=>{
+    let d={qty:0,note:''};
+    try{ d=JSON.parse(ev.note); }catch{}
+    const i=CACHE.inventory.find(x=>x.id===id);
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex-shrink:0;text-align:center;min-width:50px">
+        <div style="font-size:12px;font-weight:600">${ev.event_date.slice(5).replace('-','/')}</div>
+        <div style="font-size:10px;color:var(--text3)">${ev.event_date.slice(0,4)}</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;color:var(--text)">${d.qty} <span style="font-size:12px;font-weight:400;color:var(--text2)">${i?.unit||''}</span></div>
+        ${d.note?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${d.note}</div>`:''}
+      </div>
+      <button onclick="deleteStockCheck('${ev.id}',event)" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0">×</button>
+    </div>`;
+  }).join('');
+}
+
+function openStockCheck(){
+  const i=CACHE.inventory.find(x=>x.id===currentInvId); if(!i) return;
+  document.getElementById('stockcheck-sub').textContent=i.name;
+  document.getElementById('sc-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('sc-qty').value='';
+  document.getElementById('sc-unit').textContent=i.unit;
+  document.getElementById('sc-note').value='';
+  closeModal('modal-inv-history');
+  openModal('modal-stockcheck');
+}
+
+function closeStockCheck(){
+  closeModal('modal-stockcheck');
+  openInvHistory(currentInvId);
+}
+
+async function saveStockCheck(){
+  const date=document.getElementById('sc-date').value;
+  const qty=parseFloat(document.getElementById('sc-qty').value);
+  if(!qty&&qty!==0){showToast('Nhập số lượng!','error');return;}
+  const note=document.getElementById('sc-note').value.trim();
+  const payload=JSON.stringify({qty,note});
+  // Lưu vào events với pair_id = inv id, type = __stockcheck__
+  const data={id:'sc'+Date.now(), pair_id:currentInvId, type:'__stockcheck__', event_date:date, note:payload};
+  // Cập nhật luôn tồn kho hiện tại
+  const invData={qty, stock_date:date, initial_qty:qty};
+  try {
+    await sb.from('events').insert(data);
+    await sb.from('inventory').update(invData).eq('id',currentInvId);
+    showToast('Đã lưu kiểm kho','success');
+    await loadAll();
+    closeModal('modal-stockcheck');
+    openInvHistory(currentInvId);
+  } catch { showToast('Lỗi lưu','error'); }
+}
+
+async function deleteStockCheck(evtId, e){
+  e.stopPropagation();
+  if(!confirm('Xoá lần kiểm kho này?')) return;
+  try {
+    await sb.from('events').delete().eq('id',evtId);
+    showToast('Đã xoá','success');
+    await loadAll();
+    renderInvHistory(currentInvId);
+  } catch { showToast('Lỗi xoá','error'); }
 }
 
 async function adjustQty(id,delta){
