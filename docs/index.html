@@ -405,7 +405,7 @@
     <div id="admin-settings" class="hidden">
       <div class="card">
         <div class="card-header"><div class="card-title">🔐 Đổi mã PIN</div></div>
-        <div class="form-group"><label class="form-label">PIN nhân viên (4 số)</label><input class="form-input" id="pin-staff" type="password" maxlength="4" inputmode="numeric" placeholder="PIN mới cho Hiếu"></div>
+        <div class="form-group"><label class="form-label">PIN nhân viên (4 số)</label><input class="form-input" id="pin-staff" type="password" maxlength="4" inputmode="numeric" placeholder="PIN mới cho Thanh"></div>
         <div class="form-group"><label class="form-label">PIN quản trị (6 số)</label><input class="form-input" id="pin-admin" type="password" maxlength="6" inputmode="numeric" placeholder="PIN mới cho Henry"></div>
         <button class="btn btn-primary" onclick="savePins()">Cập nhật PIN</button>
       </div>
@@ -1055,7 +1055,7 @@ function loginAs(role){
   const app=document.getElementById('app');
   app.style.display='flex'; app.style.flexDirection='column';
   const badge=document.getElementById('role-badge');
-  badge.textContent=role==='admin'?'👑 Henry':'👤 Hiếu';
+  badge.textContent=role==='admin'?'👑 Henry':'👤 Thanh';
   badge.className='header-role'+(role==='admin'?' admin':'');
   document.getElementById('admin-settings').classList.toggle('hidden',role!=='admin');
   const staffMsg=document.getElementById('staff-settings-msg');
