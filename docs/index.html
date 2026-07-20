@@ -104,6 +104,17 @@
   /* PAIRS */
   .pair-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
   .pair-item:active{border-color:var(--accent);transform:scale(0.99)}
+  .pair-item.logged-today{border-color:rgba(34,197,94,0.4);background:var(--green-dim)}
+  .pair-item.not-logged{border-color:rgba(245,158,11,0.4);background:var(--yellow-dim)}
+  .pair-item.has-warning{box-shadow:0 0 0 1.5px var(--red) inset, var(--shadow)}
+  .pair-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .pair-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px}
+  .pair-badge.ok{background:var(--green-dim);color:var(--green)}
+  .pair-badge.warn{background:var(--yellow-dim);color:var(--yellow)}
+  .pair-badge.alert{background:var(--red-dim);color:var(--red)}
+  .pair-note-line{font-size:12px;color:var(--text2);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pair-updated-line{font-size:11px;color:var(--text3);margin-top:4px}
+  .bird-stats-bar{font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;box-shadow:var(--shadow)}
   .pair-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
   .pair-code{font-weight:700;font-size:15px}
   .pair-status{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
@@ -361,7 +372,10 @@
       <button id="bf-chick" onclick="setBirdFilter('chick')">Có non</button>
       <button id="bf-active" onclick="setBirdFilter('active')">Sinh sản</button>
       <button id="bf-rest" onclick="setBirdFilter('rest')">Nghỉ</button>
+      <button id="bf-notlogged" onclick="setBirdFilter('notlogged')">Chưa ghi hôm nay</button>
+      <button id="bf-logged" onclick="setBirdFilter('logged')">Đã ghi hôm nay</button>
     </div>
+    <div class="bird-stats-bar" id="bird-stats-bar"></div>
     <div id="pairs-list"></div>
   </div>
 
@@ -408,6 +422,14 @@
         <div class="form-group"><label class="form-label">PIN nhân viên (4 số)</label><input class="form-input" id="pin-staff" type="password" maxlength="4" inputmode="numeric" placeholder="PIN mới cho Thanh"></div>
         <div class="form-group"><label class="form-label">PIN quản trị (6 số)</label><input class="form-input" id="pin-admin" type="password" maxlength="6" inputmode="numeric" placeholder="PIN mới cho Henry"></div>
         <button class="btn btn-primary" onclick="savePins()">Cập nhật PIN</button>
+      </div>
+    </div>
+    <div id="admin-settings-backup" class="hidden">
+      <div class="card">
+        <div class="card-header"><div class="card-title">☁ Sao lưu dữ liệu</div></div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Lần sao lưu gần nhất (tự động lúc 23:30 hằng ngày)</div>
+        <div id="backup-last-info" style="font-size:14px;font-weight:600">Đang tải...</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:10px">Giai đoạn này chưa có nút sao lưu thủ công — xem file trực tiếp trong Google Drive.</div>
       </div>
     </div>
     <div id="staff-settings-msg" class="hidden">
@@ -570,7 +592,7 @@
 <div class="modal-overlay" id="modal-daily">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">📋 Nhật ký hôm nay</div>
+    <div class="modal-title" id="daily-modal-title">📋 Nhật ký hôm nay</div>
     <div class="modal-sub" id="daily-sub"></div>
     <div class="form-group">
       <label class="form-label">Ngày</label>
@@ -1058,10 +1080,12 @@ function loginAs(role){
   badge.textContent=role==='admin'?'👑 Henry':'👤 Thanh';
   badge.className='header-role'+(role==='admin'?' admin':'');
   document.getElementById('admin-settings').classList.toggle('hidden',role!=='admin');
+  document.getElementById('admin-settings-backup').classList.toggle('hidden',role!=='admin');
   const staffMsg=document.getElementById('staff-settings-msg');
   if(staffMsg) staffMsg.classList.toggle('hidden',role==='admin');
   document.getElementById('cl-admin-bar').classList.toggle('hidden',role!=='admin');
   initApp();
+  if(role==='admin') refreshBackupStatus();
 }
 function logout(){
   currentRole=null; pinInput='';
@@ -1225,46 +1249,151 @@ async function resetChecklist(){
 const SL={active:'Đang sinh sản',egg:'Ấp trứng',chick:'Có chim non',rest:'Nghỉ'};
 const SC={active:'status-active',egg:'status-egg',chick:'status-chick',rest:'status-rest'};
 
+// ===== HELPER NGÀY VIỆT NAM (Asia/Ho_Chi_Minh, UTC+7) =====
+// Không dùng new Date().toISOString().split('T')[0] cho module nhật ký ngày vì
+// hàm đó lấy theo giờ UTC — từ 00:00 đến 06:59 giờ Việt Nam sẽ bị lùi mất 1 ngày,
+// dẫn đến sáng sớm ghi nhật ký lại tính vào ngày hôm qua.
+function todayVN(){
+  const utcNow = new Date();
+  const vnTime = new Date(utcNow.getTime() + 7*60*60*1000);
+  return vnTime.toISOString().split('T')[0];
+}
+
+// ===== HELPER GỘP: thông tin nhật ký ngày của 1 lồng sinh sản =====
+// Trả về { latestLog, todayLog, hasLoggedToday, hasWarning, daysSinceLastLog, data }
+// data = nội dung JSON đã parse an toàn của latestLog (hoặc mặc định lấy từ pairs nếu chưa có nhật ký)
+const WARNING_PARENTS = ['một con yếu','có dấu hiệu bệnh','không ấp trứng','không mớm mồi'];
+const WARNING_NEST = ['ẩm ướt','cần thay dăm'];
+function getPairDailyInfo(pairId){
+  const todayStr = todayVN();
+  let latestLog=null, todayLog=null;
+  try{
+    const logs=(CACHE.events||[])
+      .filter(e=>e && e.pair_id===pairId && e.type==='__daily__' && e.event_date)
+      .sort((a,b)=>b.event_date.localeCompare(a.event_date));
+    latestLog = logs[0]||null;
+    todayLog = logs.find(l=>l.event_date===todayStr)||null;
+  }catch{ latestLog=null; todayLog=null; }
+
+  const p = (CACHE.pairs||[]).find(x=>x.id===pairId);
+  let data = { eggs:p?.eggs||0, chicks:p?.chicks||0, badEggs:0, parents:'bình thường', nest:'bình thường', note:'', img:'' };
+  let hasValidLog = false;
+  if(latestLog){
+    try{
+      const parsed = JSON.parse(latestLog.note||'{}');
+      data = {
+        eggs: Number(parsed.eggs)||0,
+        chicks: Number(parsed.chicks)||0,
+        badEggs: Number(parsed.badEggs)||0,
+        parents: parsed.parents||'bình thường',
+        nest: parsed.nest||'bình thường',
+        note: parsed.note||'',
+        img: parsed.img||''
+      };
+      hasValidLog = true;
+    }catch{ /* JSON lỗi -> giữ dữ liệu mặc định, nhưng bản ghi vẫn tồn tại (xem hasAnyLog) */ }
+  }
+  // hasAnyLog: có bản ghi nhật ký trong events hay không, bất kể JSON bên trong có đọc được hay không.
+  // hasValidLog: bản ghi tồn tại VÀ JSON đọc được, dùng để tính số liệu/cảnh báo.
+  // Tách riêng 2 cờ này để không báo sai "Chưa có nhật ký" khi thật ra đã có ghi nhưng dữ liệu bị lỗi định dạng.
+  const hasAnyLog = !!latestLog;
+
+  const hasWarning = hasValidLog && (
+    WARNING_PARENTS.includes(data.parents) ||
+    WARNING_NEST.includes(data.nest) ||
+    Number(data.badEggs)>0
+  );
+
+  let daysSinceLastLog = null;
+  if(latestLog && latestLog.event_date){
+    const d1=new Date(latestLog.event_date+'T00:00:00');
+    const d2=new Date(todayStr+'T00:00:00');
+    daysSinceLastLog = Math.round((d2-d1)/86400000);
+  }
+
+  return {
+    latestLog,
+    todayLog,
+    hasLoggedToday: !!todayLog,
+    hasWarning,
+    daysSinceLastLog,
+    hasAnyLog,
+    hasValidLog,
+    data
+  };
+}
+
 function setBirdFilter(f){
   birdFilter=f;
-  ['all','egg','chick','active','rest'].forEach(x=>document.getElementById('bf-'+x).classList.toggle('active',x===f));
+  ['all','egg','chick','active','rest','notlogged','logged'].forEach(x=>document.getElementById('bf-'+x).classList.toggle('active',x===f));
   renderBirds();
 }
 function renderBirds(){
-  const pairs=birdFilter==='all'?CACHE.pairs:CACHE.pairs.filter(p=>p.status===birdFilter);
+  // Không sửa CACHE.pairs gốc — chỉ dùng bản sao để lọc/sort
+  const infoMap = {};
+  CACHE.pairs.forEach(p=>{ infoMap[p.id]=getPairDailyInfo(p.id); });
+
+  let pairs=[...CACHE.pairs];
+  if(birdFilter==='notlogged') pairs=pairs.filter(p=>!infoMap[p.id].hasLoggedToday);
+  else if(birdFilter==='logged') pairs=pairs.filter(p=>infoMap[p.id].hasLoggedToday);
+  else if(birdFilter!=='all') pairs=pairs.filter(p=>p.status===birdFilter);
+
+  // Sort trên bản sao: cảnh báo trước, rồi chưa ghi hôm nay, rồi đã ghi hôm nay, sau cùng theo mã lồng
+  pairs.sort((a,b)=>{
+    const ia=infoMap[a.id], ib=infoMap[b.id];
+    const wa=ia.hasWarning?0:1, wb=ib.hasWarning?0:1;
+    if(wa!==wb) return wa-wb;
+    const la=ia.hasLoggedToday?1:0, lb=ib.hasLoggedToday?1:0;
+    if(la!==lb) return la-lb; // chưa ghi (0) trước đã ghi (1)
+    return (a.code||'').localeCompare(b.code||'');
+  });
+
   document.getElementById('pair-count').textContent=CACHE.pairs.length;
+
+  const loggedCount = CACHE.pairs.filter(p=>infoMap[p.id].hasLoggedToday).length;
+  const total = CACHE.pairs.length;
+  document.getElementById('bird-stats-bar').innerHTML =
+    `<span>Đã ghi hôm nay: <strong style="color:var(--text)">${loggedCount}/${total}</strong> lồng</span>
+     <span>Còn lại: <strong style="color:var(--text)">${total-loggedCount}</strong> lồng</span>`;
+
   document.getElementById('pairs-list').innerHTML=pairs.length===0?
     `<div class="empty-state"><div class="empty-icon">🕊</div>Không có cặp nào</div>`:
     pairs.map(p=>{
-      // Lấy tất cả nhật ký ngày của cặp này
-      const logs=CACHE.events.filter(e=>e.pair_id===p.id&&e.type==='__daily__')
-        .sort((a,b)=>b.event_date.localeCompare(a.event_date));
-      // Số liệu từ nhật ký gần nhất
-      let latestEggs=p.eggs||0, latestChicks=p.chicks||0;
-      if(logs.length>0){
-        try{ const d=JSON.parse(logs[0].note); latestEggs=d.eggs||0; latestChicks=d.chicks||0; }catch{}
-      }
-      // Ngày đẻ đầu tiên và gần nhất từ nhật ký
-      const allDates=logs.map(l=>l.event_date).sort();
-      const firstDate=allDates.length>0?allDates[0]:'—';
-      const lastDate=allDates.length>0?allDates[allDates.length-1]:'—';
-      // Tổng trứng và chim non tích lũy từ nhật ký (lấy max mỗi ngày)
-      let totalEggsHist=0, totalChicksHist=0;
-      logs.forEach(l=>{ try{ const d=JSON.parse(l.note); totalEggsHist+=Number(d.eggs||0); totalChicksHist+=Number(d.chicks||0); }catch{} });
+      const info = infoMap[p.id];
+      const d = info.data;
+      const itemClass = 'pair-item'
+        + (info.hasLoggedToday?' logged-today':' not-logged')
+        + (info.hasWarning?' has-warning':'');
+      const badges = `<div class="pair-badges">
+          ${info.hasLoggedToday
+            ?'<span class="pair-badge ok">✓ Đã ghi hôm nay</span>'
+            :'<span class="pair-badge warn">● Chưa ghi hôm nay</span>'}
+          ${info.hasWarning?'<span class="pair-badge alert">⚠ Cần kiểm tra</span>':''}
+          ${info.hasAnyLog&&!info.hasValidLog?'<span class="pair-badge alert">⚠ Dữ liệu nhật ký lỗi</span>':''}
+        </div>`;
+      const lastLogStr = info.latestLog ? info.latestLog.event_date.slice(5).replace('-','/')+'/'+info.latestLog.event_date.slice(0,4) : null;
+      const daysLine = info.hasAnyLog
+        ? `<div class="pair-updated-line">Ghi gần nhất: ${lastLogStr} — ${info.daysSinceLastLog===0?'hôm nay':info.daysSinceLastLog+' ngày trước'}</div>`
+        : `<div class="pair-updated-line">Chưa có nhật ký</div>`;
       return `
-      <div class="pair-item" onclick="openPairDetail('${p.id}')">
+      <div class="${itemClass}" onclick="openPairDetail('${p.id}')">
+        ${badges}
         <div class="pair-header">
           <div class="pair-code">${p.code}</div>
           <div class="pair-status ${SC[p.status]}">${SL[p.status]}</div>
         </div>
         <div class="pair-colors">${p.male||'?'} × ${p.female||'?'}${p.mutation?' — '+p.mutation:''}</div>
         <div class="pair-meta" style="flex-wrap:wrap;gap:6px">
-          <span>Trứng: <strong>${latestEggs}</strong></span>
-          <span>Non: <strong>${latestChicks}</strong></span>
-          ${firstDate!=='—'?`<span>Đẻ đầu: <strong>${firstDate.slice(5).replace('-','/')}</strong></span>`:''}
-          ${lastDate!=='—'&&lastDate!==firstDate?`<span>Đẻ gần: <strong>${lastDate.slice(5).replace('-','/')}</strong></span>`:''}
+          <span>Trứng: <strong>${d.eggs}</strong></span>
+          <span>Non: <strong>${d.chicks}</strong></span>
+          <span>Hỏng: <strong>${d.badEggs}</strong></span>
         </div>
-        ${logs.length>0?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Tổng lịch sử: ${totalEggsHist} trứng · ${totalChicksHist} con non · ${logs.length} lần ghi</div>`:''}
+        <div class="pair-meta" style="flex-wrap:wrap;gap:6px;margin-top:4px">
+          <span>Bố mẹ: <strong>${d.parents}</strong></span>
+          <span>Tổ: <strong>${d.nest}</strong></span>
+        </div>
+        ${d.note?`<div class="pair-note-line">📝 ${d.note}</div>`:''}
+        ${daysLine}
       </div>`;
     }).join('');
 }
@@ -1367,16 +1496,34 @@ function switchLogTab(tab){
 
 function openDailyLog(){
   const p=CACHE.pairs.find(x=>x.id===currentPairId);
+  const info=getPairDailyInfo(currentPairId);
   document.getElementById('daily-sub').textContent='Cặp '+(p?.code||'');
-  document.getElementById('daily-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('daily-eggs').value='0';
-  document.getElementById('daily-chicks').value='0';
-  document.getElementById('daily-bad-eggs').value='0';
-  document.getElementById('daily-parents').value='bình thường';
-  document.getElementById('daily-nest').value='bình thường';
-  document.getElementById('daily-note').value='';
-  imgDailyUrl='';
-  document.getElementById('preview-daily').innerHTML='<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>';
+  document.getElementById('daily-modal-title').textContent = info.hasLoggedToday ? '📋 Chỉnh sửa nhật ký hôm nay' : '📋 Nhật ký hôm nay';
+  document.getElementById('daily-date').value=todayVN();
+  if(info.hasLoggedToday){
+    // Đã có nhật ký hôm nay -> nạp sẵn dữ liệu cũ để sửa, tránh tạo dòng mới
+    let d={eggs:0,chicks:0,badEggs:0,parents:'bình thường',nest:'bình thường',note:'',img:''};
+    try{ d=JSON.parse(info.todayLog.note||'{}'); }catch{}
+    document.getElementById('daily-eggs').value=d.eggs??'0';
+    document.getElementById('daily-chicks').value=d.chicks??'0';
+    document.getElementById('daily-bad-eggs').value=d.badEggs??'0';
+    document.getElementById('daily-parents').value=d.parents||'bình thường';
+    document.getElementById('daily-nest').value=d.nest||'bình thường';
+    document.getElementById('daily-note').value=d.note||'';
+    imgDailyUrl=d.img||'';
+    document.getElementById('preview-daily').innerHTML = d.img
+      ? `<img src="${d.img}" style="width:100%;height:100%;object-fit:cover">`
+      : '<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>';
+  } else {
+    document.getElementById('daily-eggs').value='0';
+    document.getElementById('daily-chicks').value='0';
+    document.getElementById('daily-bad-eggs').value='0';
+    document.getElementById('daily-parents').value='bình thường';
+    document.getElementById('daily-nest').value='bình thường';
+    document.getElementById('daily-note').value='';
+    imgDailyUrl='';
+    document.getElementById('preview-daily').innerHTML='<span style="font-size:12px;color:var(--text3)">Bấm để chọn ảnh (tuỳ chọn)</span>';
+  }
   document.getElementById('upload-daily').value='';
   document.getElementById('upload-daily-status').textContent='';
   closeModal('modal-pair-detail');
@@ -1401,9 +1548,35 @@ async function saveDailyLog(){
     imgDailyUrl = await uploadToCloudinary(dailyFile,'upload-daily-status');
   }
   const payload=JSON.stringify({eggs,chicks,badEggs,parents,nest,note,img:imgDailyUrl||''});
-  const data={id:'dl'+Date.now(), pair_id:currentPairId, type:'__daily__', event_date:date, note:payload};
+  const todayStr=todayVN();
   try {
-    await sb.from('events').insert(data);
+    let opError = null;
+    if(date===todayStr){
+      // Chỉ 1 nhật ký / lồng / ngày: nếu hôm nay đã có thì update, chưa có thì insert
+      const info=getPairDailyInfo(currentPairId);
+      if(info.todayLog){
+        const {error}=await sb.from('events').update({note:payload}).eq('id',info.todayLog.id);
+        opError=error;
+      } else {
+        const {error}=await sb.from('events').insert({id:'dl'+Date.now(), pair_id:currentPairId, type:'__daily__', event_date:date, note:payload});
+        opError=error;
+      }
+    } else {
+      // Sửa nhật ký của ngày khác (không phải hôm nay): kiểm tra xem ngày đó đã có bản ghi chưa để tránh trùng
+      const existing=(CACHE.events||[]).find(e=>e.pair_id===currentPairId&&e.type==='__daily__'&&e.event_date===date);
+      if(existing){
+        const {error}=await sb.from('events').update({note:payload}).eq('id',existing.id);
+        opError=error;
+      } else {
+        const {error}=await sb.from('events').insert({id:'dl'+Date.now(), pair_id:currentPairId, type:'__daily__', event_date:date, note:payload});
+        opError=error;
+      }
+    }
+    if(opError){
+      // Supabase báo lỗi -> KHÔNG được báo thành công, dừng lại để người dùng thử lại
+      showToast('Lỗi lưu nhật ký: '+(opError.message||'không rõ nguyên nhân'),'error');
+      return;
+    }
     closeModal('modal-daily');
     showToast('Đã lưu nhật ký','success');
     await loadAll();
@@ -1428,7 +1601,7 @@ function renderDailyLog(){
     const dateStr=ev.event_date;
     const dateObj=new Date(dateStr);
     const dayLabel=dateObj.toLocaleDateString('vi-VN',{weekday:'short',day:'2-digit',month:'2-digit'});
-    const isToday=dateStr===new Date().toISOString().split('T')[0];
+    const isToday=dateStr===todayVN();
     return `<div style="background:var(--surface2);border:1px solid ${isToday?'var(--accent)':'var(--border)'};border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-size:13px;font-weight:700;color:${isToday?'var(--accent)':'var(--text)'}">${dayLabel}${isToday?' — Hôm nay':''}</div>
@@ -2054,6 +2227,41 @@ function renderReport(){
       </span></div>`;
   }
   document.getElementById('rpt-finance').innerHTML=finHtml||'<div style="color:var(--text2);font-size:13px;padding:8px 0">Chưa có dữ liệu</div>';
+}
+
+// ===== BACKUP (Google Drive qua Edge Function, chỉ Admin xem trạng thái) =====
+// Giai đoạn này KHÔNG có backup thủ công từ app — vì app chưa có Supabase Auth
+// nên không có cách nào xác thực thật sự "đây là Admin" ở phía backend (PIN chỉ
+// là lớp UI phía client, không dùng để cấp quyền cho Supabase/Edge Function được).
+// Chỉ còn job backup tự động 23:30 hằng ngày chạy hoàn toàn phía Supabase (pg_cron).
+// Frontend chỉ đọc trạng thái qua VIEW backup_status_public (không phải bảng backup_logs
+// gốc) để không lộ drive_folder_id, record_counts, error_message ra ngoài.
+
+function fmtBackupTime(iso){
+  if(!iso) return null;
+  const d = new Date(iso);
+  return d.toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+async function refreshBackupStatus(){
+  const infoEl = document.getElementById('backup-last-info');
+  if(!infoEl) return;
+  try{
+    const {data,error} = await sb.from('backup_status_public').select('*').order('created_at',{ascending:false}).limit(1);
+    if(error) throw error;
+    const last = (data&&data[0])||null;
+    if(!last){ infoEl.textContent='Chưa có lần sao lưu nào'; return; }
+    const timeStr = fmtBackupTime(last.created_at);
+    if(last.status==='success'){
+      infoEl.innerHTML = `✅ ${timeStr}`;
+    } else if(last.status==='running'){
+      infoEl.innerHTML = `⏳ Đang chạy — bắt đầu lúc ${timeStr}`;
+    } else {
+      infoEl.innerHTML = `❌ Lỗi lúc ${timeStr} — xem chi tiết trong Supabase Dashboard`;
+    }
+  }catch{
+    infoEl.textContent='Không tải được trạng thái backup';
+  }
 }
 
 // ===== PIN SETTINGS =====
