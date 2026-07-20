@@ -371,7 +371,6 @@
       <button id="bf-egg" onclick="setBirdFilter('egg')">Ấp trứng</button>
       <button id="bf-chick" onclick="setBirdFilter('chick')">Có non</button>
       <button id="bf-active" onclick="setBirdFilter('active')">Sinh sản</button>
-      <button id="bf-rest" onclick="setBirdFilter('rest')">Nghỉ</button>
       <button id="bf-notlogged" onclick="setBirdFilter('notlogged')">Chưa ghi hôm nay</button>
       <button id="bf-logged" onclick="setBirdFilter('logged')">Đã ghi hôm nay</button>
     </div>
@@ -1311,6 +1310,23 @@ function getPairDailyInfo(pairId){
     daysSinceLastLog = Math.round((d2-d1)/86400000);
   }
 
+  // Trạng thái sinh sản (nhãn Ấp trứng/Có chim non/Đang sinh sản) suy ra HOÀN TOÀN từ
+  // nhật ký gần nhất, không còn đọc cột "status" lưu tay trong bảng pairs — cột đó
+  // trước đây chỉ set 1 lần lúc tạo cặp và không có chỗ nào cập nhật lại sau này,
+  // nên dễ bị lệch với số liệu thật (vd: đã nở 3 con nhưng nhãn vẫn còn "Ấp trứng").
+  // Vì suy hoàn toàn tự động nên trạng thái "Nghỉ" không còn tồn tại — không thể suy
+  // "đang cho nghỉ" chỉ từ số trứng/số non, nên tạm bỏ nhãn này (Henry đã xác nhận).
+  let derivedStatus;
+  if(!hasValidLog){
+    derivedStatus='active'; // chưa có nhật ký hợp lệ -> coi như đang sinh sản (giống mặc định lúc tạo cặp)
+  } else if(Number(data.chicks)>0){
+    derivedStatus='chick';
+  } else if(Number(data.eggs)>0){
+    derivedStatus='egg';
+  } else {
+    derivedStatus='active';
+  }
+
   return {
     latestLog,
     todayLog,
@@ -1319,13 +1335,14 @@ function getPairDailyInfo(pairId){
     daysSinceLastLog,
     hasAnyLog,
     hasValidLog,
+    status: derivedStatus,
     data
   };
 }
 
 function setBirdFilter(f){
   birdFilter=f;
-  ['all','egg','chick','active','rest','notlogged','logged'].forEach(x=>document.getElementById('bf-'+x).classList.toggle('active',x===f));
+  ['all','egg','chick','active','notlogged','logged'].forEach(x=>document.getElementById('bf-'+x).classList.toggle('active',x===f));
   renderBirds();
 }
 function renderBirds(){
@@ -1336,7 +1353,7 @@ function renderBirds(){
   let pairs=[...CACHE.pairs];
   if(birdFilter==='notlogged') pairs=pairs.filter(p=>!infoMap[p.id].hasLoggedToday);
   else if(birdFilter==='logged') pairs=pairs.filter(p=>infoMap[p.id].hasLoggedToday);
-  else if(birdFilter!=='all') pairs=pairs.filter(p=>p.status===birdFilter);
+  else if(birdFilter!=='all') pairs=pairs.filter(p=>infoMap[p.id].status===birdFilter);
 
   // Sort trên bản sao: cảnh báo trước, rồi chưa ghi hôm nay, rồi đã ghi hôm nay, sau cùng theo mã lồng
   pairs.sort((a,b)=>{
@@ -1380,7 +1397,7 @@ function renderBirds(){
         ${badges}
         <div class="pair-header">
           <div class="pair-code">${p.code}</div>
-          <div class="pair-status ${SC[p.status]}">${SL[p.status]}</div>
+          <div class="pair-status ${SC[info.status]}">${SL[info.status]}</div>
         </div>
         <div class="pair-colors">${p.male||'?'} × ${p.female||'?'}${p.mutation?' — '+p.mutation:''}</div>
         <div class="pair-meta" style="flex-wrap:wrap;gap:6px">
@@ -1460,7 +1477,7 @@ function openPairDetail(id){
   evtViewMonth=new Date().getMonth();
   evtViewYear=new Date().getFullYear();
   document.getElementById('pd-title').textContent='Cặp '+p.code;
-  document.getElementById('pd-sub').textContent=SL[p.status];
+  document.getElementById('pd-sub').textContent=SL[getPairDailyInfo(id).status];
   document.getElementById('pd-body').innerHTML=`
     ${(p.img_male||p.img_female)?`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
