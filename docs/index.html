@@ -176,6 +176,56 @@
   .qty-btns{display:flex;align-items:center;gap:8px;margin-top:6px}
   .qty-btn{background:var(--surface2);border:1.5px solid var(--border);color:var(--text);border-radius:6px;width:28px;height:28px;font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
 
+  /* INVENTORY DASHBOARD (Module Kho) */
+  .inv-dash{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+  .inv-dash-cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 6px;text-align:center;box-shadow:var(--shadow)}
+  .inv-dash-cell .n{font-size:20px;font-weight:700;line-height:1}
+  .inv-dash-cell .l{font-size:10px;color:var(--text2);margin-top:3px}
+  .inv-dash-cell.ok .n{color:var(--green)}
+  .inv-dash-cell.low .n{color:var(--yellow)}
+  .inv-dash-cell.out .n{color:var(--red)}
+  .inv-dash-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .inv-dash-meta b{color:var(--text);font-weight:600}
+  .inv-target-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--text2);margin:-4px 0 12px}
+  .inv-target-row input{width:60px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:4px 8px;color:var(--text);font-family:inherit;font-size:12px;text-align:center}
+
+  /* INVENTORY CARD v2 */
+  .inv-card2{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;cursor:pointer;box-shadow:var(--shadow);transition:transform .15s}
+  .inv-card2:active{transform:scale(0.99)}
+  .inv-card2.out{border-color:rgba(239,68,68,0.4)}
+  .inv-card2.low{border-color:rgba(245,158,11,0.4)}
+  .inv-card2-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .inv-card2-name{font-size:14px;font-weight:600}
+  .inv-card2-qty{font-size:22px;font-weight:700;margin-bottom:6px}
+  .inv-card2-qty .inv-card2-unit{font-size:12px;font-weight:400;color:var(--text2)}
+  .inv-card2-bottom{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:6px}
+  .inv-card2-bottom.warn{color:var(--red);font-weight:600}
+  .progress-fill.pf-green{background:var(--green)}
+  .progress-fill.pf-yellow{background:var(--yellow)}
+  .progress-fill.pf-orange{background:var(--orange)}
+  .progress-fill.pf-red{background:var(--red);animation:pfpulse 1.4s infinite}
+  @keyframes pfpulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+  /* SUGGEST BUY */
+  .inv-suggest-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .inv-suggest-row:last-child{border-bottom:none}
+  .inv-suggest-amt{font-weight:700;color:var(--accent);font-size:12px}
+
+  /* BULK CHECK */
+  .bulk-check-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+  .bulk-check-row:last-child{border-bottom:none}
+  .bulk-check-name{font-size:13px;font-weight:500}
+  .bulk-check-input{max-width:100px;text-align:right}
+
+  /* DETAIL MODAL */
+  .inv-detail-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .inv-detail-row:last-child{border-bottom:none}
+  .inv-detail-row .lbl{color:var(--text2)}
+  .inv-detail-row .val{font-weight:600}
+  .inv-action-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 4px}
+  .inv-action-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:11px;cursor:pointer;font-family:inherit}
+  .inv-action-btn .ic{font-size:18px}
+
   /* MODAL */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:none;align-items:flex-end;justify-content:center}
   .modal-overlay.open{display:flex}
@@ -407,10 +457,46 @@
   <!-- INVENTORY -->
   <div id="page-inventory" class="page">
     <div class="section-header">
-      <div class="section-title">Kho vật tư</div>
+      <div class="section-title">📦 Kho</div>
       <button class="btn btn-primary btn-sm" onclick="openAddInv()">+ Thêm</button>
     </div>
-    <div class="card" style="padding:0 16px"><div id="inv-list"></div></div>
+
+    <div class="inv-dash">
+      <div class="inv-dash-cell"><div class="n" id="inv-dash-total">0</div><div class="l">Tổng vật tư</div></div>
+      <div class="inv-dash-cell ok"><div class="n" id="inv-dash-ok">0</div><div class="l">🟢 Đủ</div></div>
+      <div class="inv-dash-cell low"><div class="n" id="inv-dash-low">0</div><div class="l">🟡 Sắp hết</div></div>
+      <div class="inv-dash-cell out"><div class="n" id="inv-dash-out">0</div><div class="l">🔴 Hết</div></div>
+    </div>
+    <div class="inv-dash-meta">
+      <span>📅 Kiểm gần nhất: <b id="inv-dash-lastcheck">—</b></span>
+      <span>⏰ Nên kiểm lại: <b id="inv-dash-nextcheck">—</b></span>
+    </div>
+
+    <button class="btn btn-secondary" style="margin-bottom:12px" onclick="openBulkCheck()">📦 Kiểm kho hôm nay</button>
+
+    <div id="inv-suggest-wrap" class="card hidden">
+      <div class="card-header"><div class="card-title">🛒 Đề xuất nhập hàng</div></div>
+      <div class="inv-target-row">
+        <span>Số ngày tồn kho mong muốn</span>
+        <input type="number" inputmode="numeric" id="inv-target-days" value="30" onchange="saveInvTargetDays()">
+      </div>
+      <div id="inv-suggest-list"></div>
+    </div>
+
+    <div class="filter-tabs" id="inv-status-filter">
+      <button class="active" onclick="setInvFilterStatus('all',event)">Tất cả</button>
+      <button onclick="setInvFilterStatus('ok',event)">Đủ</button>
+      <button onclick="setInvFilterStatus('low',event)">Sắp hết</button>
+      <button onclick="setInvFilterStatus('out',event)">Hết</button>
+    </div>
+    <div class="filter-tabs" id="inv-cat-filter">
+      <button class="active" onclick="setInvFilterCat('all',event)">Tất cả loại</button>
+      <button onclick="setInvFilterCat('Thức ăn',event)">Thức ăn</button>
+      <button onclick="setInvFilterCat('Thuốc / khoáng',event)">Thuốc</button>
+      <button onclick="setInvFilterCat('Vật tư',event)">Vật tư</button>
+    </div>
+
+    <div id="inv-list"></div>
   </div>
 
   <!-- CÀI ĐẶT -->
@@ -695,12 +781,9 @@
       <div class="form-group"><label class="form-label">Ngưỡng cảnh báo</label><input class="form-input" id="inv-threshold" type="number" inputmode="decimal" placeholder="VD: 5"></div>
     </div>
     <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
-    <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📦 Kiểm kê</div>
-    <div class="form-group"><label class="form-label">Ngày kiểm kê</label><input class="form-input" id="inv-stock-date" type="date"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Tồn kho ban đầu</label><input class="form-input" id="inv-initial-qty" type="number" inputmode="decimal" placeholder="0"></div>
-      <div class="form-group"><label class="form-label">Tiêu hao / ngày</label><input class="form-input" id="inv-daily-use" type="number" inputmode="decimal" placeholder="0"></div>
-    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">📦 Kiểm kê đầu tiên</div>
+    <div class="form-group"><label class="form-label">Ngày kiểm đầu tiên</label><input class="form-input" id="inv-stock-date" type="date"></div>
+    <div class="form-group"><label class="form-label">Số lượng kiểm đầu tiên</label><input class="form-input" id="inv-initial-qty" type="number" inputmode="decimal" placeholder="0"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <button class="btn btn-secondary" onclick="closeModal('modal-inv')">Huỷ</button>
       <button class="btn btn-primary" onclick="saveInv()">Lưu</button>
@@ -744,6 +827,63 @@
     </div>
   </div>
 </div>
+
+<!-- MODAL CHI TIẾT VẬT TƯ -->
+<div class="modal-overlay" id="modal-inv-detail">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="invd-title">Chi tiết vật tư</div>
+    <div class="modal-sub" id="invd-cat"></div>
+    <div id="invd-rows"></div>
+    <div class="inv-action-grid">
+      <button class="inv-action-btn" onclick="openStockCheckFromDetail()"><span class="ic">📦</span>Kiểm kho</button>
+      <button class="inv-action-btn" onclick="openInvAdjust('in')"><span class="ic">➕</span>Nhập thêm</button>
+      <button class="inv-action-btn" onclick="openInvAdjust('out')"><span class="ic">➖</span>Xuất kho</button>
+      <button class="inv-action-btn" onclick="openInvHistoryFromDetail()"><span class="ic">📜</span>Lịch sử</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-inv-detail')">Đóng</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-inv-detail');openEditInv(currentInvId)">✏️ Sửa vật tư</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NHẬP / XUẤT KHO -->
+<div class="modal-overlay" id="modal-inv-adjust">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="inv-adjust-title">Nhập thêm</div>
+    <div class="modal-sub" id="inv-adjust-sub"></div>
+    <div class="form-group"><label class="form-label">Ngày</label><input class="form-input" id="ia-date" type="date"></div>
+    <div class="form-group"><label class="form-label">Số lượng</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input class="form-input" id="ia-qty" type="number" inputmode="decimal" placeholder="0">
+        <span id="ia-unit" style="color:var(--text2);font-size:14px;white-space:nowrap"></span>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Ghi chú</label><input class="form-input" id="ia-note" placeholder="VD: Mua thêm ở đại lý..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" onclick="closeInvAdjust()">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveInvAdjust()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL KIỂM KHO HÀNG LOẠT -->
+<div class="modal-overlay" id="modal-bulkcheck">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📦 Kiểm kho hôm nay</div>
+    <div class="modal-sub">Cập nhật số lượng thực tế cho từng món, xong bấm Lưu toàn bộ</div>
+    <div class="form-group"><label class="form-label">Ngày kiểm</label><input class="form-input" id="bulk-check-date" type="date"></div>
+    <div id="bulk-check-list" style="margin:10px 0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn btn-secondary" onclick="closeModal('modal-bulkcheck')">Huỷ</button>
+      <button class="btn btn-primary" onclick="saveBulkCheck()">Lưu toàn bộ</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-task">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -1895,48 +2035,197 @@ async function deleteTx(id,e){
 }
 
 // ===== INVENTORY =====
+// Giữ hàm cũ để tương thích ngược (item cũ còn field daily_use nhập tay)
 function calcRemaining(i){
   if(!i.stock_date || !i.initial_qty || !i.daily_use) return null;
   const days = Math.floor((new Date() - new Date(i.stock_date)) / 86400000);
   return Math.max(0, parseFloat(i.initial_qty) - days * parseFloat(i.daily_use));
 }
 
+function fmtDMY(dateStr){
+  if(!dateStr) return '—';
+  const p=dateStr.split('-'); if(p.length!==3) return dateStr;
+  return `${p[2]}/${p[1]}`;
+}
+function fmtDMYFull(dateStr){
+  if(!dateStr) return '—';
+  const p=dateStr.split('-'); if(p.length!==3) return dateStr;
+  return `${p[2]}/${p[1]}/${p[0]}`;
+}
+
+// Lấy toàn bộ lịch sử kiểm kho (chỉ loại kiểm kê thực tế) của 1 vật tư, sắp xếp cũ->mới
+function getInvHistory(id){
+  return CACHE.events.filter(e=>e.pair_id===id&&e.type==='__stockcheck__')
+    .map(e=>{ let d={qty:0,note:''}; try{ d=JSON.parse(e.note); }catch{} return {date:e.event_date, qty:parseFloat(d.qty)||0, note:d.note||'', evId:e.id}; })
+    .sort((a,b)=>a.date.localeCompare(b.date));
+}
+// Lấy toàn bộ dòng thời gian (kiểm kho + nhập + xuất) mới -> cũ, để hiển thị lịch sử đầy đủ
+function getInvTimeline(id){
+  return CACHE.events.filter(e=>e.pair_id===id&&(e.type==='__stockcheck__'||e.type==='__restock__'||e.type==='__stockout__'))
+    .map(e=>{ let d={qty:0,note:''}; try{ d=JSON.parse(e.note); }catch{} return {date:e.event_date, qty:parseFloat(d.qty)||0, note:d.note||'', evId:e.id, type:e.type}; })
+    .sort((a,b)=>b.date.localeCompare(a.date));
+}
+
+// Tiêu hao trung bình/ngày — tự tính từ lịch sử kiểm kho, chỉ tính các đoạn tồn giảm (tiêu hao thật, bỏ qua đoạn tăng do nhập thêm)
+function calcAvgDailyUse(id){
+  const hist=getInvHistory(id);
+  if(hist.length<2) return null;
+  let usedTotal=0, daysTotal=0;
+  for(let k=1;k<hist.length;k++){
+    const prev=hist[k-1], cur=hist[k];
+    const days=Math.round((new Date(cur.date)-new Date(prev.date))/86400000);
+    if(days<=0) continue;
+    if(cur.qty<prev.qty){ usedTotal+=(prev.qty-cur.qty); daysTotal+=days; }
+  }
+  if(daysTotal===0) return null;
+  return usedTotal/daysTotal;
+}
+
+// Ngày còn dùng = tồn hiện tại / tiêu hao trung bình. Nếu chưa đủ dữ liệu -> null
+function calcDaysLeft(item){
+  const avg=calcAvgDailyUse(item.id);
+  const rate = avg!==null ? avg : (parseFloat(item.daily_use)>0?parseFloat(item.daily_use):null);
+  if(!rate||rate<=0) return null;
+  return Math.floor((parseFloat(item.qty)||0)/rate);
+}
+
+// Mức "đầy kho" tham chiếu để vẽ progress bar = mức tồn cao nhất từng ghi nhận
+function calcCapacity(item){
+  const hist=getInvHistory(item.id).map(h=>h.qty);
+  const vals=[...hist, parseFloat(item.qty)||0, parseFloat(item.initial_qty)||0, (parseFloat(item.threshold)||0)*4];
+  return Math.max(...vals, 1);
+}
+
+function getInvStatus(item){
+  const qty=parseFloat(item.qty)||0;
+  if(qty<=0) return 'out';
+  if(item.threshold>0 && qty<=item.threshold) return 'low';
+  return 'ok';
+}
+
+let invFilterStatus='all', invFilterCat='all';
+function setInvFilterStatus(s,e){
+  invFilterStatus=s;
+  document.querySelectorAll('#inv-status-filter button').forEach(b=>b.classList.remove('active'));
+  if(e&&e.target) e.target.classList.add('active');
+  renderInventory();
+}
+function setInvFilterCat(c,e){
+  invFilterCat=c;
+  document.querySelectorAll('#inv-cat-filter button').forEach(b=>b.classList.remove('active'));
+  if(e&&e.target) e.target.classList.add('active');
+  renderInventory();
+}
+
+function saveInvTargetDays(){
+  const v=parseInt(document.getElementById('inv-target-days').value)||30;
+  localStorage.setItem('inv_target_days', v);
+  renderInvSuggestions();
+}
+
+// ----- Dashboard tổng quan -----
+function renderInvDashboard(){
+  const total=CACHE.inventory.length;
+  let ok=0,low=0,out=0;
+  CACHE.inventory.forEach(i=>{ const s=getInvStatus(i); if(s==='out')out++; else if(s==='low')low++; else ok++; });
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('inv-dash-total',total); set('inv-dash-ok',ok); set('inv-dash-low',low); set('inv-dash-out',out);
+
+  const dates=CACHE.inventory.map(i=>i.stock_date).filter(Boolean).sort();
+  const lastCheck = dates.length? dates[dates.length-1] : null;
+  set('inv-dash-lastcheck', lastCheck?fmtDMYFull(lastCheck):'Chưa có');
+
+  const intervalDays=7;
+  if(lastCheck){
+    const next=new Date(lastCheck+'T00:00:00'); next.setDate(next.getDate()+intervalDays);
+    const diff=Math.ceil((next-new Date())/86400000);
+    set('inv-dash-nextcheck', diff>0?`Sau ${diff} ngày`:(diff===0?'Hôm nay':`Đã trễ ${Math.abs(diff)} ngày`));
+  } else set('inv-dash-nextcheck','—');
+}
+
+// ----- Đề xuất nhập hàng -----
+function renderInvSuggestions(){
+  const wrap=document.getElementById('inv-suggest-wrap'); if(!wrap) return;
+  const targetDays=parseInt(localStorage.getItem('inv_target_days')||'30');
+  const tdInput=document.getElementById('inv-target-days'); if(tdInput) tdInput.value=targetDays;
+  const list=CACHE.inventory.map(i=>{
+    const status=getInvStatus(i);
+    if(status==='ok') return null;
+    const avg=calcAvgDailyUse(i.id) ?? (parseFloat(i.daily_use)>0?parseFloat(i.daily_use):null);
+    if(!avg) return null;
+    const needed=Math.round((avg*targetDays - (parseFloat(i.qty)||0))*10)/10;
+    if(needed<=0) return null;
+    return {i,needed,status};
+  }).filter(Boolean);
+  if(list.length===0){ wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+  document.getElementById('inv-suggest-list').innerHTML=list.map(({i,needed,status})=>`
+    <div class="inv-suggest-row">
+      <span>${status==='out'?'🔴':'🟡'} ${i.name}</span>
+      <span class="inv-suggest-amt">Đề xuất mua ${needed} ${i.unit}</span>
+    </div>`).join('');
+}
+
+// ----- Danh sách card -----
+function renderInvCard(i){
+  const status=getInvStatus(i);
+  const cap=calcCapacity(i);
+  const qty=parseFloat(i.qty)||0;
+  const pct=Math.max(0,Math.min(100,Math.round(qty/cap*100)));
+  let barClass='pf-green';
+  if(pct<20) barClass='pf-red'; else if(pct<40) barClass='pf-orange'; else if(pct<70) barClass='pf-yellow';
+  const daysLeft=calcDaysLeft(i);
+  const dot = status==='out'?'🔴':status==='low'?'🟡':'🟢';
+  let daysLine = 'Chưa đủ dữ liệu để dự báo';
+  if(daysLeft!==null) daysLine = daysLeft<=0 ? '⚠️ Có thể đã hết' : `≈ còn ${daysLeft} ngày`;
+  return `<div class="inv-card2 ${status}" onclick="openInvDetail('${i.id}')">
+      <div class="inv-card2-top"><span class="inv-card2-name">${dot} ${i.name}</span></div>
+      <div class="inv-card2-qty">${qty} <span class="inv-card2-unit">${i.unit}</span></div>
+      <div class="progress-bar"><div class="progress-fill ${barClass}" style="width:${pct}%"></div></div>
+      <div class="inv-card2-bottom ${status==='out'?'warn':''}">
+        <span>${daysLine}</span>
+        <span>📅 Kiểm: ${fmtDMY(i.stock_date)}</span>
+      </div>
+    </div>`;
+}
+
 function renderInventory(){
-  document.getElementById('inv-list').innerHTML=CACHE.inventory.length===0?
-    `<div class="empty-state"><div class="empty-icon">📦</div>Chưa có vật tư</div>`:
-    CACHE.inventory.map(i=>{
-      const remaining = calcRemaining(i);
-      const displayQty = remaining !== null ? Math.round(remaining*10)/10 : i.qty;
-      const low = i.threshold>0 && displayQty<=i.threshold;
-      const warn = !low && i.threshold>0 && displayQty<=i.threshold*1.5;
-      let daysLeft = null;
-      if(i.daily_use>0 && remaining!==null) daysLeft = Math.floor(remaining/parseFloat(i.daily_use));
-      return `
-        <div class="inv-item">
-          <div class="inv-left">
-            <div class="inv-name" style="cursor:pointer;color:var(--text)" onclick="openInvHistory('${i.id}')">${i.name} <span style="font-size:11px;color:var(--accent)">📋 lịch sử</span></div>
-            <div class="inv-cat">${i.category}</div>
-            ${i.stock_date?`<div style="font-size:11px;color:var(--text3);margin-top:2px">Kiểm kê: ${i.stock_date} · Ban đầu: ${i.initial_qty} ${i.unit}</div>`:''}
-            ${i.daily_use>0?`<div style="font-size:11px;color:var(--text3)">Tiêu hao: ${i.daily_use} ${i.unit}/ngày${daysLeft!==null?` · Còn ~${daysLeft} ngày`:''}</div>`:''}
-            ${low?`<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:3px">⚠️ Sắp hết — cần nhập thêm!</div>`:''}
-            <div class="qty-btns" style="margin-top:8px">
-              <button class="qty-btn" onclick="adjustQty('${i.id}',-1)">−</button>
-              <button class="qty-btn" onclick="adjustQty('${i.id}',1)">+</button>
-              <span style="font-size:12px;color:var(--text3);margin-left:4px">${i.unit}</span>
-              <button onclick="openEditInv('${i.id}')" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;font-family:inherit;margin-left:8px">Sửa</button>
-            </div>
-          </div>
-          <div class="inv-right">
-            <div class="inv-qty ${low?'low':warn?'warn':''}">${displayQty}</div>
-            <div class="inv-unit">${i.unit}</div>
-            ${remaining!==null?`<div style="font-size:10px;color:var(--text3);margin-top:2px">còn lại</div>`:''}
-          </div>
-        </div>`;
-    }).join('');
+  renderInvDashboard();
+  renderInvSuggestions();
+  let items=CACHE.inventory.slice();
+  if(invFilterStatus!=='all') items=items.filter(i=>getInvStatus(i)===invFilterStatus);
+  if(invFilterCat!=='all') items=items.filter(i=>i.category===invFilterCat);
+  const listEl=document.getElementById('inv-list');
+  listEl.innerHTML = items.length===0?
+    `<div class="empty-state"><div class="empty-icon">📦</div>Không có vật tư nào khớp bộ lọc</div>`:
+    items.map(renderInvCard).join('');
 }
 
 // ===== KIỂM KHO =====
 let currentInvId = null;
+
+// Modal chi tiết vật tư — điểm bấm chính từ Card
+function openInvDetail(id){
+  currentInvId=id;
+  const i=CACHE.inventory.find(x=>x.id===id); if(!i) return;
+  document.getElementById('invd-title').textContent=i.name;
+  document.getElementById('invd-cat').textContent=i.category;
+  const hist=getInvHistory(id);
+  const lastCheck=hist[hist.length-1]||null;
+  const avg=calcAvgDailyUse(id);
+  const daysLeft=calcDaysLeft(i);
+  const used = lastCheck && hist.length>1 ? Math.max(0,Math.round((hist[hist.length-2].qty-lastCheck.qty)*10)/10) : null;
+  document.getElementById('invd-rows').innerHTML=`
+    <div class="inv-detail-row"><span class="lbl">Ngày kiểm gần nhất</span><span class="val">${lastCheck?fmtDMYFull(lastCheck.date):'Chưa kiểm'}</span></div>
+    <div class="inv-detail-row"><span class="lbl">Số lượng lúc kiểm</span><span class="val">${lastCheck?lastCheck.qty+' '+i.unit:'—'}</span></div>
+    <div class="inv-detail-row"><span class="lbl">Số lượng hiện tại</span><span class="val">${parseFloat(i.qty)||0} ${i.unit}</span></div>
+    <div class="inv-detail-row"><span class="lbl">Tiêu hao trung bình</span><span class="val">${avg!==null?avg.toFixed(2)+' '+i.unit+'/ngày':'Chưa đủ dữ liệu'}</span></div>
+    <div class="inv-detail-row"><span class="lbl">Đã dùng (kỳ gần nhất)</span><span class="val">${used!==null?used+' '+i.unit:'—'}</span></div>
+    <div class="inv-detail-row"><span class="lbl">Ngày dự kiến hết</span><span class="val">${daysLeft!==null?(daysLeft<=0?'Có thể đã hết':'~'+daysLeft+' ngày nữa'):'Chưa đủ dữ liệu'}</span></div>`;
+  openModal('modal-inv-detail');
+}
+function openStockCheckFromDetail(){ closeModal('modal-inv-detail'); openStockCheckDirect(); }
+function openInvHistoryFromDetail(){ closeModal('modal-inv-detail'); openInvHistory(currentInvId); }
 
 function openInvHistory(id){
   currentInvId = id;
@@ -1944,38 +2233,36 @@ function openInvHistory(id){
   document.getElementById('inv-history-title').textContent = i.name + ' — Lịch sử';
   // Hiện tồn kho hiện tại
   const remaining = calcRemaining(i);
-  const displayQty = remaining !== null ? Math.round(remaining*10)/10 : i.qty;
+  const displayQty = remaining !== null ? Math.round(remaining*10)/10 : (parseFloat(i.qty)||0);
   document.getElementById('inv-current-stock').innerHTML = `
     <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tồn kho hiện tại</div>
-    <div style="font-size:28px;font-weight:700;color:${i.threshold>0&&displayQty<=i.threshold?'var(--red)':'var(--accent)'}">${displayQty} <span style="font-size:14px;font-weight:400;color:var(--text2)">${i.unit}</span></div>
-    ${i.daily_use>0&&remaining!==null?`<div style="font-size:12px;color:var(--text3);margin-top:4px">Tiêu hao ~${i.daily_use} ${i.unit}/ngày</div>`:''}`;
+    <div style="font-size:28px;font-weight:700;color:${i.threshold>0&&displayQty<=i.threshold?'var(--red)':'var(--accent)'}">${displayQty} <span style="font-size:14px;font-weight:400;color:var(--text2)">${i.unit}</span></div>`;
   renderInvHistory(id);
   openModal('modal-inv-history');
 }
 
+// Lịch sử đầy đủ: kiểm kho + nhập thêm + xuất kho, không mất dữ liệu cũ
 function renderInvHistory(id){
-  const logs = CACHE.events.filter(e=>e.pair_id===id&&e.type==='__stockcheck__')
-    .sort((a,b)=>b.event_date.localeCompare(a.event_date))
-    .slice(0,30);
+  const logs = getInvTimeline(id).slice(0,50);
   const container = document.getElementById('inv-history-list');
   if(logs.length===0){
     container.innerHTML='<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">Chưa có lần kiểm kho nào</div>';
     return;
   }
+  const i=CACHE.inventory.find(x=>x.id===id);
+  const typeLabel={'__stockcheck__':'📦 Kiểm kho','__restock__':'➕ Nhập thêm','__stockout__':'➖ Xuất kho'};
   container.innerHTML = logs.map(ev=>{
-    let d={qty:0,note:''};
-    try{ d=JSON.parse(ev.note); }catch{}
-    const i=CACHE.inventory.find(x=>x.id===id);
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
       <div style="flex-shrink:0;text-align:center;min-width:50px">
-        <div style="font-size:12px;font-weight:600">${ev.event_date.slice(5).replace('-','/')}</div>
-        <div style="font-size:10px;color:var(--text3)">${ev.event_date.slice(0,4)}</div>
+        <div style="font-size:12px;font-weight:600">${ev.date.slice(5).replace('-','/')}</div>
+        <div style="font-size:10px;color:var(--text3)">${ev.date.slice(0,4)}</div>
       </div>
       <div style="flex:1">
-        <div style="font-size:15px;font-weight:700;color:var(--text)">${d.qty} <span style="font-size:12px;font-weight:400;color:var(--text2)">${i?.unit||''}</span></div>
-        ${d.note?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${d.note}</div>`:''}
+        <div style="font-size:11px;color:var(--text3)">${typeLabel[ev.type]||''}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text)">${ev.qty} <span style="font-size:12px;font-weight:400;color:var(--text2)">${i?.unit||''}</span></div>
+        ${ev.note?`<div style="font-size:12px;color:var(--text2);margin-top:2px">${ev.note}</div>`:''}
       </div>
-      <button onclick="deleteStockCheck('${ev.id}',event)" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0">×</button>
+      <button onclick="deleteStockCheck('${ev.evId}',event)" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0">×</button>
     </div>`;
   }).join('');
 }
@@ -1990,10 +2277,20 @@ function openStockCheck(){
   closeModal('modal-inv-history');
   openModal('modal-stockcheck');
 }
+// Mở kiểm kho trực tiếp từ modal chi tiết (không cần qua màn hình lịch sử)
+function openStockCheckDirect(){
+  const i=CACHE.inventory.find(x=>x.id===currentInvId); if(!i) return;
+  document.getElementById('stockcheck-sub').textContent=i.name;
+  document.getElementById('sc-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('sc-qty').value='';
+  document.getElementById('sc-unit').textContent=i.unit;
+  document.getElementById('sc-note').value='';
+  openModal('modal-stockcheck');
+}
 
 function closeStockCheck(){
   closeModal('modal-stockcheck');
-  openInvHistory(currentInvId);
+  openInvDetail(currentInvId);
 }
 
 async function saveStockCheck(){
@@ -2012,13 +2309,13 @@ async function saveStockCheck(){
     showToast('Đã lưu kiểm kho','success');
     await loadAll();
     closeModal('modal-stockcheck');
-    openInvHistory(currentInvId);
+    openInvDetail(currentInvId);
   } catch { showToast('Lỗi lưu','error'); }
 }
 
 async function deleteStockCheck(evtId, e){
   e.stopPropagation();
-  if(!confirm('Xoá lần kiểm kho này?')) return;
+  if(!confirm('Xoá lần ghi nhận này?')) return;
   try {
     await sb.from('events').delete().eq('id',evtId);
     showToast('Đã xoá','success');
@@ -2037,9 +2334,80 @@ async function adjustQty(id,delta){
   } catch { setSyncStatus('err','Lỗi lưu'); }
 }
 
+// ----- Nhập thêm / Xuất kho -----
+let invAdjustMode=null;
+function openInvAdjust(mode){
+  invAdjustMode=mode;
+  const i=CACHE.inventory.find(x=>x.id===currentInvId); if(!i) return;
+  document.getElementById('inv-adjust-title').textContent = mode==='in' ? '➕ Nhập thêm' : '➖ Xuất kho';
+  document.getElementById('inv-adjust-sub').textContent = i.name;
+  document.getElementById('ia-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('ia-qty').value='';
+  document.getElementById('ia-unit').textContent=i.unit;
+  document.getElementById('ia-note').value='';
+  closeModal('modal-inv-detail');
+  openModal('modal-inv-adjust');
+}
+function closeInvAdjust(){ closeModal('modal-inv-adjust'); openInvDetail(currentInvId); }
+async function saveInvAdjust(){
+  const i=CACHE.inventory.find(x=>x.id===currentInvId); if(!i) return;
+  const date=document.getElementById('ia-date').value;
+  const amt=parseFloat(document.getElementById('ia-qty').value);
+  if(!amt||amt<=0){ showToast('Nhập số lượng hợp lệ!','error'); return; }
+  const note=document.getElementById('ia-note').value.trim();
+  const curQty=parseFloat(i.qty)||0;
+  const newQty = invAdjustMode==='in' ? curQty+amt : Math.max(0,curQty-amt);
+  const evType = invAdjustMode==='in' ? '__restock__' : '__stockout__';
+  const payload=JSON.stringify({qty:amt, note});
+  const data={id:(invAdjustMode==='in'?'rs':'so')+Date.now(), pair_id:currentInvId, type:evType, event_date:date, note:payload};
+  try{
+    await sb.from('events').insert(data);
+    await sb.from('inventory').update({qty:Math.round(newQty*10)/10}).eq('id',currentInvId);
+    showToast(invAdjustMode==='in'?'Đã ghi nhận nhập kho':'Đã ghi nhận xuất kho','success');
+    await loadAll();
+    closeModal('modal-inv-adjust');
+    openInvDetail(currentInvId);
+  }catch{ showToast('Lỗi lưu','error'); }
+}
+
+// ----- Kiểm kho hàng loạt -----
+function openBulkCheck(){
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('bulk-check-date').value=today;
+  document.getElementById('bulk-check-list').innerHTML = CACHE.inventory.length===0?
+    '<div class="empty-state">Chưa có vật tư</div>':
+    CACHE.inventory.map(i=>`
+      <div class="bulk-check-row" data-id="${i.id}">
+        <div class="bulk-check-name">${i.name} <span style="color:var(--text3);font-size:11px">${i.unit}</span></div>
+        <input class="form-input bulk-check-input" type="number" inputmode="decimal" value="${parseFloat(i.qty)||0}">
+      </div>`).join('');
+  openModal('modal-bulkcheck');
+}
+async function saveBulkCheck(){
+  const date=document.getElementById('bulk-check-date').value;
+  const rows=[...document.querySelectorAll('#bulk-check-list .bulk-check-row')];
+  const events=[], updates=[];
+  rows.forEach(r=>{
+    const id=r.dataset.id;
+    const val=parseFloat(r.querySelector('.bulk-check-input').value);
+    const item=CACHE.inventory.find(x=>x.id===id);
+    if(!item||isNaN(val)||val===(parseFloat(item.qty)||0)) return;
+    events.push({id:'sc'+Date.now()+Math.random().toString(36).slice(2,6), pair_id:id, type:'__stockcheck__', event_date:date, note:JSON.stringify({qty:val,note:'Kiểm kho hàng loạt'})});
+    updates.push({id, qty:val});
+  });
+  if(updates.length===0){ showToast('Không có thay đổi nào','error'); closeModal('modal-bulkcheck'); return; }
+  try{
+    if(events.length) await sb.from('events').insert(events);
+    for(const u of updates){ await sb.from('inventory').update({qty:u.qty, stock_date:date}).eq('id',u.id); }
+    showToast(`Đã lưu kiểm kho cho ${updates.length} món`,'success');
+    await loadAll();
+    closeModal('modal-bulkcheck');
+  }catch{ showToast('Lỗi lưu','error'); }
+}
+
 function openAddInv(){
   editingInvId=null;
-  ['inv-name','inv-unit','inv-threshold','inv-initial-qty','inv-daily-use'].forEach(id=>document.getElementById(id).value='');
+  ['inv-name','inv-unit','inv-threshold','inv-initial-qty'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('inv-cat').value='Thức ăn';
   document.getElementById('inv-stock-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('inv-modal-title').textContent='Thêm vật tư';
@@ -2055,7 +2423,6 @@ function openEditInv(id){
   document.getElementById('inv-threshold').value=i.threshold||'';
   document.getElementById('inv-stock-date').value=i.stock_date||new Date().toISOString().split('T')[0];
   document.getElementById('inv-initial-qty').value=i.initial_qty||'';
-  document.getElementById('inv-daily-use').value=i.daily_use||'';
   openModal('modal-inv');
 }
 async function saveInv(){
@@ -2063,26 +2430,26 @@ async function saveInv(){
   if(!name){showToast('Nhập tên!','error');return;}
   const stockDate=document.getElementById('inv-stock-date').value;
   const initialQty=parseFloat(document.getElementById('inv-initial-qty').value)||0;
-  const dailyUse=parseFloat(document.getElementById('inv-daily-use').value)||0;
-  // Tính qty hiện tại từ kiểm kê
-  let qty = initialQty;
-  if(stockDate && dailyUse>0){
-    const days=Math.floor((new Date()-new Date(stockDate))/86400000);
-    qty=Math.max(0, initialQty - days*dailyUse);
-  }
   const data={
     name,
     category:document.getElementById('inv-cat').value,
-    qty:Math.round(qty*10)/10,
+    qty:Math.round(initialQty*10)/10,
     unit:document.getElementById('inv-unit').value.trim()||'cái',
     threshold:parseFloat(document.getElementById('inv-threshold').value)||0,
     stock_date:stockDate,
     initial_qty:initialQty,
-    daily_use:dailyUse,
   };
   try {
-    if(editingInvId){ await sb.from('inventory').update(data).eq('id',editingInvId); }
-    else { await sb.from('inventory').insert({id:'inv'+Date.now(),...data}); }
+    if(editingInvId){
+      await sb.from('inventory').update(data).eq('id',editingInvId);
+    } else {
+      const newId='inv'+Date.now();
+      await sb.from('inventory').insert({id:newId,...data});
+      // Ghi lần kiểm kê đầu tiên vào lịch sử để tính tiêu hao trung bình về sau
+      if(stockDate){
+        await sb.from('events').insert({id:'sc'+Date.now(), pair_id:newId, type:'__stockcheck__', event_date:stockDate, note:JSON.stringify({qty:initialQty,note:'Kiểm kê đầu tiên'})});
+      }
+    }
     closeModal('modal-inv'); showToast('Đã lưu','success'); await loadAll();
   } catch { showToast('Lỗi lưu','error'); }
 }
