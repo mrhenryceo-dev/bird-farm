@@ -799,6 +799,7 @@
       <button class="btn btn-secondary" onclick="closeModal('modal-inv')">Huỷ</button>
       <button class="btn btn-primary" onclick="saveInv()">Lưu</button>
     </div>
+    <div id="inv-delete-wrap" class="hidden" style="margin-top:10px"><button class="btn btn-danger" onclick="deleteInv()">🗑️ Xoá vật tư này</button></div>
   </div>
 </div>
 
@@ -856,6 +857,7 @@
       <button class="btn btn-secondary" onclick="closeModal('modal-inv-detail')">Đóng</button>
       <button class="btn btn-primary" onclick="closeModal('modal-inv-detail');openEditInv(currentInvId)">✏️ Sửa vật tư</button>
     </div>
+    <div style="margin-top:10px"><button class="btn btn-danger" onclick="deleteInv()">🗑️ Xoá vật tư này</button></div>
   </div>
 </div>
 
@@ -2422,6 +2424,7 @@ function openAddInv(){
   document.getElementById('inv-cat').value='Thức ăn';
   document.getElementById('inv-stock-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('inv-modal-title').textContent='Thêm vật tư';
+  document.getElementById('inv-delete-wrap').classList.add('hidden');
   openModal('modal-inv');
 }
 function openEditInv(id){
@@ -2434,7 +2437,21 @@ function openEditInv(id){
   document.getElementById('inv-threshold').value=i.threshold||'';
   document.getElementById('inv-stock-date').value=i.stock_date||new Date().toISOString().split('T')[0];
   document.getElementById('inv-initial-qty').value=i.initial_qty||'';
+  document.getElementById('inv-delete-wrap').classList.remove('hidden');
   openModal('modal-inv');
+}
+async function deleteInv(){
+  const id=editingInvId||currentInvId; if(!id) return;
+  const i=CACHE.inventory.find(x=>x.id===id);
+  if(!confirm(`Xoá vật tư "${i?.name||''}"? Toàn bộ lịch sử kiểm kho/nhập/xuất của món này cũng sẽ bị xoá, không thể hoàn tác.`)) return;
+  try{
+    await sb.from('events').delete().eq('pair_id',id).in('type',['__stockcheck__','__restock__','__stockout__']);
+    await sb.from('inventory').delete().eq('id',id);
+    showToast('Đã xoá vật tư','success');
+    closeModal('modal-inv'); closeModal('modal-inv-detail'); closeModal('modal-inv-history');
+    editingInvId=null; currentInvId=null;
+    await loadAll();
+  }catch{ showToast('Lỗi xoá','error'); }
 }
 async function saveInv(){
   const name=document.getElementById('inv-name').value.trim();
